@@ -153,6 +153,22 @@ button { cursor: pointer; }
 .chip.done span, .row.done .rt span { text-decoration: line-through; color: var(--muted); }
 .chip.check { border: 1px dashed var(--muted); background: transparent; }
 .chip[draggable="true"] { cursor: grab; }
+/* 親タスク・子タスク：親は太字、子は親の名前を小さく添える */
+.chip.par span, .row.par .rt > span:first-of-type { font-weight: 800; }
+.chip .cw { display: flex; flex-direction: column; min-width: 0; }
+.chip .cw .pn { font-size: 10px; color: var(--muted); font-weight: 400; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm .pn { font-size: 12px; color: var(--muted); }
+.badge.kids { background: var(--sunk); color: var(--ink); border: 1px solid var(--line); }
+/* 同じ日の中の並べ替え */
+.ord { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 8px 4px 0; }
+.ord button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; width: 34px; height: 26px; font-size: 13px; line-height: 1; color: var(--ink); }
+.ord button:disabled { opacity: .3; }
+.sortbtn { margin-left: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 11.5px; padding: 1px 8px; color: var(--accent); font-weight: 500; }
+.kidlist { display: flex; flex-direction: column; gap: 4px; }
+.kidlist button { border: 0; background: var(--sunk); border-radius: 6px; text-align: left; padding: 6px 8px; font-size: 13px; color: var(--ink); }
+.kidlist button.done { text-decoration: line-through; color: var(--muted); }
+.kidlist small { color: var(--muted); }
+.btn.split { align-self: flex-start; }
 .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--muted)); display: inline-block; }
 .more { border: 0; background: transparent; color: var(--accent); font-size: 12px; text-align: left; padding: 0 6px; }
 .badge { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 5px; white-space: nowrap; }
@@ -380,6 +396,11 @@ fieldset { border: 0; padding: 0; margin: 0; }
       <div id="rowDept"><label for="fDept">部局</label><select id="fDept"></select></div>
       <fieldset id="rowStatus"><legend>状態</legend><div class="seg" id="fStatus"></div></fieldset>
       <div id="rowMemo"><label for="fMemo">メモ（任意）</label><textarea id="fMemo" rows="2"></textarea></div>
+      <div id="rowKids" hidden>
+        <label>子タスク（細かく分けた作業）</label>
+        <div class="kidlist" id="fKids"></div>
+      </div>
+      <button type="button" class="btn split" id="fSplit" hidden>＋ 子タスクに分ける</button>
       <dl class="info" id="fInfo"></dl>
       <p class="msg" id="fMsg" role="alert"></p>
     </div>
@@ -498,11 +519,15 @@ function shown(t) {
   if (scope === 'all') return true;
   return t.dept === scope;
 }
+// 同じ日の中：↑↓で決めた並び順が先。決めていないものは、提出物→遅れ→部局→名前の順
 function cmp(a, b) {
-  return (b.to ? 1 : 0) - (a.to ? 1 : 0) || (isLate(b) ? 1 : 0) - (isLate(a) ? 1 : 0) ||
+  return (a.order || 9999) - (b.order || 9999) || (b.to ? 1 : 0) - (a.to ? 1 : 0) || (isLate(b) ? 1 : 0) - (isLate(a) ? 1 : 0) ||
     deptIndex(a.dept) - deptIndex(b.dept) || String(a.task).localeCompare(String(b.task), 'ja');
 }
 const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || cmp(a, b);
+// 親タスク（見られる範囲にあるときだけ）と子タスク
+const parentOf = (t) => (t.parent ? allTasks().find((x) => x.id === t.parent && !!x.draft === !!t.draft) || null : null);
+const kidsOf = (t) => allTasks().filter((x) => x.parent === t.id && !!x.draft === !!t.draft);
 
 /* ---------- 部品 ---------- */
 function stateCls(t) {
@@ -517,25 +542,33 @@ function rel(t) {
   return md(t.due) + (n > 1 && n <= 14 ? '・あと' + n + '日' : '');
 }
 function chipHtml(t) {
-  const tip = t.task + '｜' + t.dept + '・' + (t.owner || '担当なし') + (t.to ? '・提出先 ' + t.to : '');
-  return '<button type="button" class="chip ' + stateCls(t) + '" data-id="' + esc(t.id) + '"' +
+  const p = parentOf(t);
+  const tip = (p ? '親：' + p.task + '｜' : '') + t.task + '｜' + t.dept + '・' + (t.owner || '担当なし') + (t.to ? '・提出先 ' + t.to : '');
+  const name = p ? '<span class="cw"><small class="pn">▸ ' + esc(p.task) + '</small><span>' + esc(t.task) + '</span></span>' : '<span>' + esc(t.task) + '</span>';
+  return '<button type="button" class="chip ' + stateCls(t) + (kidsOf(t).length ? ' par' : '') + '" data-id="' + esc(t.id) + '"' +
     (mode !== 'list' && isActive(t) ? ' draggable="true"' : '') + ' title="' + esc(tip) + '">' +
-    '<i class="dot" style="--c:var(--c' + deptIndex(t.dept) + ')"></i><span>' + esc(t.task) + '</span></button>';
+    '<i class="dot" style="--c:var(--c' + deptIndex(t.dept) + ')"></i>' + name + '</button>';
 }
-function rowHtml(t) {
+const kidsBadge = (ks) => (ks.length ? '<span class="badge kids">子 ' + ks.filter((k) => k.status === '済').length + '/' + ks.filter((k) => k.status !== '不要').length + ' 済</span>' : '');
+// ord：同じ日の並べ替えの↑↓を出す（{first, last}）
+function rowHtml(t, ord) {
   const done = t.status === '済';
   const canTick = t.status !== '不要';
-  return '<div class="row ' + stateCls(t) + '">' +
+  const p = parentOf(t);
+  const ks = kidsOf(t);
+  return '<div class="row ' + stateCls(t) + (ks.length ? ' par' : '') + '">' +
     '<label class="tick"><input type="checkbox" data-tick="' + esc(t.id) + '"' + (done ? ' checked' : '') + (canTick ? '' : ' disabled') +
     ' aria-label="' + esc(t.task) + ' を済にする"></label>' +
     '<button type="button" class="rmain" data-id="' + esc(t.id) + '">' +
     '<span class="rt"><i class="dot" style="--c:var(--c' + deptIndex(t.dept) + ')"></i><span>' + esc(t.task) + '</span>' +
     (t.to ? '<span class="badge ext">提出物</span>' : '') + (t.status === '要確認' ? '<span class="badge check">要確認</span>' : '') +
-    (t.status === '進行中' ? '<span class="badge" style="background:var(--accent-soft);color:var(--accent)">進行中</span>' : '') + '</span>' +
-    '<span class="rm"><span>' + esc(t.dept) + '</span><span>' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
-    (t.to ? '<span>提出先：' + esc(t.to) + '</span>' : '') + '</span></button></div>';
+    (t.status === '進行中' ? '<span class="badge" style="background:var(--accent-soft);color:var(--accent)">進行中</span>' : '') + kidsBadge(ks) + '</span>' +
+    '<span class="rm">' + (p ? '<span class="pn">▸ 親：' + esc(p.task) + '</span>' : '') + '<span>' + esc(t.dept) + '</span><span>' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
+    (t.to ? '<span>提出先：' + esc(t.to) + '</span>' : '') + '</span></button>' +
+    (ord ? '<span class="ord"><button type="button" data-move="-1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を上へ"' + (ord.first ? ' disabled' : '') + '>↑</button>' +
+      '<button type="button" data-move="1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を下へ"' + (ord.last ? ' disabled' : '') + '>↓</button></span>' : '') + '</div>';
 }
-const rowsHtml = (list) => '<div class="rows">' + list.map(rowHtml).join('') + '</div>';
+const rowsHtml = (list, ord) => '<div class="rows">' + list.map((t, i) => rowHtml(t, ord ? { first: i === 0, last: i === list.length - 1 } : null)).join('') + '</div>';
 
 /* ---------- 描く ---------- */
 function render() {
@@ -633,7 +666,8 @@ function listHtml(byDay, evDay, list, from, to) {
     const evs = evList().filter((e) => e.start === k).map((e) => '◆ ' + e.name + (e.end !== e.start ? '（〜' + md(e.end) + '）' : ''));
     if (!ts.length && !evs.length) return;
     h += '<div class="lgroup"><h3 class="' + (k === D.today ? 'is-today' : '') + '">' + md(k) + (k === D.today ? '・今日' : '') +
-      (evs.length ? '<span class="evs">' + esc(evs.join('　')) + '</span>' : '') + '</h3>' + (ts.length ? rowsHtml(ts) : '') + '</div>';
+      (evs.length ? '<span class="evs">' + esc(evs.join('　')) + '</span>' : '') +
+      (ts.length > 1 ? '<button type="button" class="sortbtn" data-open-day="' + k + '">並べ替え</button>' : '') + '</h3>' + (ts.length ? rowsHtml(ts) : '') + '</div>';
   });
   return h || (list.some((t) => t.due) ? '<div class="empty">この4週間にはタスクがありません。‹ › で前後の4週間を見られます。</div>' : '');
 }
@@ -777,31 +811,41 @@ function openEdit(id) {
   $('#fStatus').innerHTML = st.map((s, i) => '<label><input type="radio" name="st" id="st' + i + '" value="' + esc(s) + '"' + (s === t.status ? ' checked' : '') + '>' + esc(s) + '</label>').join('');
   // 主務カレンダーから入れた行は「旬」しか分からないので、期限は10日・20日・月末の仮の日付
   const rough = /^主務カレンダー/.test(t.source || '') && !t.updated && t.due ? '古い主務カレンダーの「旬」から仮に入れた日付です。分かれば正しい日付に直してください' : '';
-  const info = [['期限について', rough], ['部局', t.dept], ['提出先', t.to], ['メモ', t.memo], ['親タスク', t.parent],
+  const info = [['期限について', rough], ['部局', t.dept], ['提出先', t.to], ['メモ', t.memo], ['親タスク', parentOf(t) ? parentOf(t).task : t.parent],
     ['最後に直した', t.updated ? new Date(t.updated).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''], ['番号', t.id]];
   $('#fInfo').innerHTML = info.filter((x) => x[1]).map((x) => '<dt>' + x[0] + '</dt><dd>' + esc(x[1]) + '</dd>').join('');
   $('#fInfo').hidden = false;
+  // 子タスクの一覧と「分ける」（会議でその場で分解できるように）。子の子は作らない（2段まで）
+  const kids = kidsOf(t).sort(byDue);
+  $('#rowKids').hidden = !kids.length;
+  $('#fKids').innerHTML = kids.map((k) => '<button type="button" data-kid="' + esc(k.id) + '" class="' + (['済', '不要'].includes(k.status) ? 'done' : '') + '">' +
+    esc(k.task) + '<br><small>' + (k.due ? md(k.due) : '期限なし') + '・' + esc(k.owner || '担当なし') + '・' + esc(k.status) + '</small></button>').join('');
+  $('#fSplit').hidden = !!parentOf(t);
   $('#fMsg').textContent = t.status === '要確認' ? '「要確認」は、今年も必要か決まっていないタスクです。必要なら「未着手」、いらなければ「不要」にしてください。' : '';
   $('#fSave').textContent = '保存';
   openDlg($('#dlg'));
 }
 
-function openAdd(due) {
+let addParent = null;  // 子タスクを足しているときの親
+function openAdd(due, parent) {
   editing = null;
-  $('#dlgTitle').textContent = which === 'draft' ? '来年の下書きに足す' : 'タスクを足す';
-  $('#fYearly').checked = false;
+  addParent = parent || null;
+  $('#dlgTitle').textContent = parent ? '「' + parent.task.slice(0, 20) + '」の子タスクを足す' : which === 'draft' ? '来年の下書きに足す' : 'タスクを足す';
+  $('#fYearly').checked = parent ? isYearly(parent.kind) : false;
   $('#fTask').value = '';
   $('#fDue').value = due || '';
-  const dept = scopeDept() || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
+  const dept = parent ? parent.dept : scopeDept() || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
   $('#fDept').innerHTML = D.depts.map((d) => '<option value="' + esc(d) + '"' + (d === dept ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
   $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ');
-  $('#fOwner').value = scope === 'me' ? D.me.name : '';
+  $('#fOwner').value = parent ? '' : scope === 'me' ? D.me.name : '';
   $('#fMemo').value = '';
   $('#rowDept').hidden = false;
   $('#rowMemo').hidden = false;
   $('#rowStatus').hidden = true;
   $('#fInfo').hidden = true;
-  $('#fMsg').textContent = '';
+  $('#rowKids').hidden = true;
+  $('#fSplit').hidden = true;
+  $('#fMsg').textContent = parent ? '期限は親と同じ日にしてあります。1人・1回で終わる作業に分けてください。足したあと、続けて次も足せます。' : '';
   $('#fSave').textContent = '足す';
   openDlg($('#dlg'));
   setTimeout(() => $("#fTask").focus(), 30);
@@ -830,11 +874,20 @@ async function submitForm(e) {
     } else {
       const item = {
         task, due: $('#fDue').value, dept: $('#fDept').value, owner: $('#fOwner').value, memo: $('#fMemo').value.trim(),
-        yearly: $('#fYearly').checked, draft: which === 'draft',
+        yearly: $('#fYearly').checked, draft: addParent ? !!addParent.draft : which === 'draft', parent: addParent ? addParent.id : '',
       };
       const r = await api('addTask', item);
       replace(r.task);
       if (r.note) load(true);
+      if (addParent) {  // 会議で続けて分けられるように、窓は閉じずに次を入れられるようにする
+        render();
+        $('#fTask').value = '';
+        $('#fOwner').value = '';
+        $('#fMsg').textContent = '足しました：' + task.slice(0, 20) + (r.task.owner && !item.owner ? '（担当：' + r.task.owner + '）' : '') +
+          '。続けて次の子タスクを入れるか、「やめる」で閉じます（子は今 ' + kidsOf(addParent).length + '件）';
+        $('#fTask').focus();
+        return;
+      }
       $('#dlg').close();
       if (r.task.due) {  // 足したタスクが見える所へ動かす
         const d = pd(r.task.due);
@@ -855,13 +908,44 @@ async function submitForm(e) {
 function openDay(k) {
   const ts = pool().filter((t) => t.due === k && shown(t)).sort(cmp);
   $('#dayTitle').textContent = md(k) + 'のタスク（' + ts.length + '件）';
-  $('#dayBody').innerHTML = ts.length ? rowsHtml(ts) : '<div class="empty">この日のタスクはありません</div>';
+  $('#dayBody').innerHTML = ts.length ? (ts.length > 1 ? '<p class="lead">右の↑↓で、優先する順に並べ替えられます（みんなの画面で同じ順になります）</p>' : '') +
+    rowsHtml(ts, ts.length > 1) : '<div class="empty">この日のタスクはありません</div>';
   $('#dayAdd').dataset.day = k;
   openDlg($('#dayDlg'));
 }
 
+// 同じ日の並べ替え：見えているとなりと入れ替え、その日の全部に 1,2,3… の順番を付け直す（変わったものだけ保存）
+let saving = Promise.resolve();
+function moveTask(id, dir) {
+  const t = pool().find((x) => x.id === id);
+  if (!t || !t.due) return;
+  const vis = pool().filter((x) => x.due === t.due && shown(x)).sort(cmp);
+  const o = vis[vis.indexOf(t) + dir];
+  if (!o) return;
+  const full = pool().filter((x) => x.due === t.due).sort(cmp);
+  const a = full.indexOf(t), b = full.indexOf(o);
+  full[a] = o; full[b] = t;
+  const todo = [];
+  full.forEach((x, n) => { if (x.order !== n + 1) { x.order = n + 1; todo.push(x); } });
+  render();
+  if ($('#dayDlg').open) openDay(t.due);
+  saving = saving.then(async () => {
+    for (const x of todo) {
+      try {
+        const r = await api('saveTask', x.id, { order: String(x.order) }, x.updated);
+        if (r.conflict) { toast('ほかの人が先に直していました。最新にします'); await load(true); return; }
+        replace(Object.assign(r.task, { order: x.order }));
+      } catch (e) { toast('並び順を保存できませんでした：' + errMsg(e)); await load(true); return; }
+    }
+  });
+}
+
 /* ---------- 操作 ---------- */
 document.addEventListener('click', (e) => {
+  const mv = e.target.closest('[data-move]');
+  if (mv) { moveTask(mv.dataset.mid, Number(mv.dataset.move)); return; }
+  const kid = e.target.closest('[data-kid]');
+  if (kid) { openEdit(kid.dataset.kid); return; }
   const tab = e.target.closest('[data-view]');
   if (tab) { view = tab.dataset.view; store.set('view', view); render(); window.scrollTo(0, 0); return; }
   const open = e.target.closest('[data-open-day]');
@@ -918,6 +1002,7 @@ $('#wDraft').onclick = () => setWhich('draft');
   $('#m' + m[0].toUpperCase() + m.slice(1)).onclick = () => { mode = m; store.set('mode', mode); renderCal(); };
 });
 $('#fab').onclick = () => openAdd('');
+$('#fSplit').onclick = () => { const p = editing; if (p) openAdd(p.due, p); };
 $('#form').onsubmit = submitForm;
 $('#fClose').onclick = $('#fCancel').onclick = () => $('#dlg').close();
 $('#dayClose').onclick = () => $('#dayDlg').close();
@@ -998,7 +1083,9 @@ const demo = (() => {
     mk('主将局', 'OBOG会へご挨拶の日程調整', 33, '江口'),
     mk('主将局', '年始ミーティングの議題を集める', 45, '上野'),
     mk('主将局', '主将局ミーティング議事録の共有', 0, '江口', { status: '済', updated: Date.now() - 864e5 }),
-    mk('合宿', '春合宿 実施計画書の下書き', 12, '北村', { to: '日本躰道協会' }),
+    mk('合宿', '春合宿 実施計画書を作る', 12, '小野', { to: '日本躰道協会', id: 'T0P1' }),
+    mk('合宿', '去年の計画書を探して日程・人数を直す', 6, '北村', { parent: 'T0P1' }),
+    mk('合宿', '監督に計画書を確認してもらう', 10, '小野', { parent: 'T0P1' }),
     mk('合宿', '春合宿 宿の仮予約', 5, '小野'),
     mk('合宿', '春合宿 参加者アンケートを出す', 8, '北村'),
     mk('合宿', '春合宿 バスの見積もりを2社から取る', 15, '小野'),
@@ -1040,14 +1127,14 @@ const demo = (() => {
     appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48) }; },
     saveTask(id, change) {
       const t = tasks.concat(draft).find((x) => x.id === id);
-      Object.keys(change).forEach((k) => { t[k] = change[k]; });
+      Object.keys(change).forEach((k) => { t[k] = k === 'order' ? Number(change[k]) : change[k]; });
       t.updated = Date.now();
       return { task: t };
     },
     addTask(item) {
       const head = members.find((m) => m.head && m.dept === item.dept);
       const t = mk(item.dept, item.task, null, item.owner || (item.draft || !head ? '' : head.name),
-        { due: item.due, memo: item.memo, kind: item.yearly ? '毎年' : '今年だけ', updated: Date.now(), draft: !!item.draft });
+        { due: item.due, memo: item.memo, kind: item.yearly ? '毎年' : '今年だけ', updated: Date.now(), draft: !!item.draft, parent: item.parent || '' });
       (item.draft ? draft : tasks).push(t);
       return { task: t };
     },
