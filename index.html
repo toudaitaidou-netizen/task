@@ -480,20 +480,41 @@ function api(fn, ...args) {
 }
 const errMsg = (e) => String((e && e.message) || e).replace(/^Exception:\s*/, '').replace(/^Error:\s*/, '');
 
+// 前回の中身をスマホに残しておき、開いた瞬間はそれを出す（裏で最新を取って差しかえる）
+function cached() {
+  const c = store.get('cache', null);
+  return c && c.u === auth.u && c.k === auth.k && c.D ? c.D : null;
+}
+function useData(data) {
+  D = data;
+  D.draft = D.draft || [];
+  D.events = D.events || [];
+  if (!D.draft.length) which = 'live';
+  today = pd(D.today);
+  if (!month) month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
+  if (!wk) wk = monday(today);
+  $('#who').textContent = D.me.name + ' さん（' + (D.me.dept || '部局なし') + '）';
+  fillScope();
+  render();
+}
 async function load(quiet) {
+  let early = false;
+  if (!D && REMOTE) {
+    const c = cached();
+    if (c) {
+      c.today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);  // 日本の今日
+      useData(c);
+      $('#who').textContent += ' ・ 最新にしています…';
+      early = true;
+    }
+  }
   try {
-    D = await api('appData');
-    D.draft = D.draft || [];
-    D.events = D.events || [];
-    if (!D.draft.length) which = 'live';
+    const data = await api('appData');
+    useData(data);
     lastLoad = Date.now();
-    today = pd(D.today);
-    if (!month) month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
-    if (!wk) wk = monday(today);
-    $('#who').textContent = D.me.name + ' さん（' + (D.me.dept || '部局なし') + '）';
-    fillScope();
-    render();
+    if (REMOTE) store.set('cache', { u: auth.u, k: auth.k, D: data });
   } catch (e) {
+    if (early) { $('#who').textContent = D.me.name + ' さん（前回の内容）'; toast('最新にできませんでした：' + errMsg(e)); return; }
     if (quiet) return;
     $('#who').textContent = '';
     document.querySelector('main').innerHTML = '<div class="err"><b>開けませんでした。</b><br>' + esc(errMsg(e)) + '</div>';
