@@ -324,7 +324,12 @@ fieldset { border: 0; padding: 0; margin: 0; }
     <div class="filters">
       <label for="fScope" class="sr">表示する範囲</label>
       <select id="fScope"></select>
-      <label class="chk"><input type="checkbox" id="fAll"> 済・要確認も出す</label>
+      <label for="fRange" class="sr">どのタスクを出すか</label>
+      <select id="fRange">
+        <option value="todo">やること（未完了）だけ</option>
+        <option value="ahead">今日以降すべて（済も）</option>
+        <option value="all">過去も含めて全部</option>
+      </select>
       <div class="seg2 which" id="whichSeg" role="group" aria-label="どの年を見るか" hidden>
         <button type="button" id="wLive" aria-pressed="true">今年</button>
         <button type="button" id="wDraft" aria-pressed="false">来年の下書き</button>
@@ -395,7 +400,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
       </div>
       <div id="rowDept"><label for="fDept">部局</label><select id="fDept"></select></div>
       <fieldset id="rowStatus"><legend>状態</legend><div class="seg" id="fStatus"></div></fieldset>
-      <div id="rowMemo"><label for="fMemo">メモ（任意）</label><textarea id="fMemo" rows="2"></textarea></div>
+      <div id="rowMemo"><label for="fMemo" id="fMemoLabel">メモ（任意）</label><textarea id="fMemo" rows="3" maxlength="500"></textarea></div>
       <div id="rowKids" hidden>
         <label>子タスク（細かく分けた作業）</label>
         <div class="kidlist" id="fKids"></div>
@@ -450,7 +455,10 @@ let D = null;          // サーバーからのデータ
 let today = null;
 let view = store.get('view', 'cal');
 let scope = store.get('scope', null);  // 初めて開いたときは、自分の担当がなければ「全部」
-let showAll = store.get('all', false);
+// 出すタスク：todo＝未完了だけ／ahead＝今日以降すべて（済も。遅れと期限なしの未完了も出す）／all＝過去も含めて全部
+// 前の「済・要確認も出す」のチェック（all：true/false）を引きつぐ
+let range = store.get('range', store.get('all', false) ? 'all' : 'todo');
+if (!['todo', 'ahead', 'all'].includes(range)) range = 'todo';
 // 4週＝今週から4週間（先の詰まり具合が月の変わり目で切れない）／月＝ふつうのカレンダー／リスト＝4週間を日ごとに
 let mode = store.get('mode', window.matchMedia('(max-width: 640px)').matches ? 'list' : 'weeks');
 if (!['weeks', 'month', 'list'].includes(mode)) mode = 'weeks';
@@ -529,13 +537,14 @@ function fillScope() {
   if (!scope) scope = D.tasks.some((t) => t.owner === D.me.name && ACTIVE.includes(t.status)) ? 'me' : 'all';
   if (!opts.some((o) => o[0] === scope)) scope = 'me';
   $('#fScope').innerHTML = opts.map((o) => '<option value="' + esc(o[0]) + '"' + (o[0] === scope ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('');
-  $('#fAll').checked = showAll;
+  $('#fRange').value = range;
 }
 const scopeDept = () => (scope !== 'me' && scope !== 'all' ? scope : null);
 const isActive = (t) => ACTIVE.includes(t.status);
 const isLate = (t) => isActive(t) && t.due && pd(t.due) < today;
 function shown(t) {
-  if (!showAll && !isActive(t)) return false;
+  if (range === 'todo' && !isActive(t)) return false;
+  if (range === 'ahead' && !isActive(t) && (t.status === '不要' || !t.due || pd(t.due) < today)) return false;
   if (scope === 'me') return t.owner === D.me.name;
   if (scope === 'all') return true;
   return t.dept === scope;
@@ -546,6 +555,18 @@ function cmp(a, b) {
     deptIndex(a.dept) - deptIndex(b.dept) || String(a.task).localeCompare(String(b.task), 'ja');
 }
 const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || cmp(a, b);
+// だれが足したか（台帳O列「足した経路」から）。人が足したものは名前、自動で入ったものはどこからか
+function addedBy(src) {
+  src = String(src || '');
+  const m = src.match(/^(タスク画面|フォーム(?:＋AI)?)（(.+)）$/);
+  if (m) return m[2] + (m[1] === 'タスク画面' ? '' : '（フォームから）');
+  if (src === '行事' || src === '型') return '自動（行事の日付から）';
+  if (/^来年分/.test(src)) return '自動（去年の分から）';
+  if (/^主務カレンダー/.test(src)) return '昔の主務カレンダーから写したもの';
+  if (src === 'メール') return '自動（共有アカウントのメールから）';
+  if (src === '手入力') return '台帳に直接（主務など）';
+  return src;
+}
 // 親タスク（見られる範囲にあるときだけ）と子タスク
 const parentOf = (t) => (t.parent ? allTasks().find((x) => x.id === t.parent && !!x.draft === !!t.draft) || null : null);
 const kidsOf = (t) => allTasks().filter((x) => x.parent === t.id && !!x.draft === !!t.draft);
@@ -825,14 +846,16 @@ function openEdit(id) {
   $('#fOwner').innerHTML = ownerOptions(t.owner, '（担当なし）');
   $('#fOwner').value = t.owner;
   $('#rowDept').hidden = true;
-  $('#rowMemo').hidden = true;
+  $('#fMemoLabel').textContent = 'メモ（書き直し・追記できます）';
+  $('#fMemo').value = t.memo || '';
+  $('#rowMemo').hidden = false;
   $('#rowStatus').hidden = false;
   const st = EDIT_STATUS.includes(t.status) ? EDIT_STATUS : EDIT_STATUS.concat(t.status);
   $('#fStatus').style.gridTemplateColumns = 'repeat(' + st.length + ', 1fr)';
   $('#fStatus').innerHTML = st.map((s, i) => '<label><input type="radio" name="st" id="st' + i + '" value="' + esc(s) + '"' + (s === t.status ? ' checked' : '') + '>' + esc(s) + '</label>').join('');
   // 主務カレンダーから入れた行は「旬」しか分からないので、期限は10日・20日・月末の仮の日付
   const rough = /^主務カレンダー/.test(t.source || '') && !t.updated && t.due ? '古い主務カレンダーの「旬」から仮に入れた日付です。分かれば正しい日付に直してください' : '';
-  const info = [['期限について', rough], ['部局', t.dept], ['提出先', t.to], ['メモ', t.memo], ['親タスク', parentOf(t) ? parentOf(t).task : t.parent],
+  const info = [['期限について', rough], ['部局', t.dept], ['提出先', t.to], ['足した人', addedBy(t.source)], ['親タスク', parentOf(t) ? parentOf(t).task : t.parent],
     ['最後に直した', t.updated ? new Date(t.updated).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''], ['番号', t.id]];
   $('#fInfo').innerHTML = info.filter((x) => x[1]).map((x) => '<dt>' + x[0] + '</dt><dd>' + esc(x[1]) + '</dd>').join('');
   $('#fInfo').hidden = false;
@@ -860,6 +883,7 @@ function openAdd(due, parent) {
   $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ');
   $('#fOwner').value = parent ? '' : scope === 'me' ? D.me.name : '';
   $('#fMemo').value = '';
+  $('#fMemoLabel').textContent = 'メモ（任意）';
   $('#rowDept').hidden = false;
   $('#rowMemo').hidden = false;
   $('#rowStatus').hidden = true;
@@ -886,7 +910,7 @@ async function submitForm(e) {
       const patch = {};
       // 毎年のチェック：外したら「今年だけ」。もともと「2年ごと」なら、チェックが付いたままのときはそのまま
       const kind = $('#fYearly').checked ? (isYearly(editing.kind) ? editing.kind : '毎年') : '今年だけ';
-      const now = { task, due: $('#fDue').value, owner: $('#fOwner').value, status: st ? st.value : editing.status, kind };
+      const now = { task, due: $('#fDue').value, owner: $('#fOwner').value, status: st ? st.value : editing.status, kind, memo: $('#fMemo').value.trim() };
       Object.keys(now).forEach((k) => { if (String(now[k]) !== String(editing[k] || '')) patch[k] = now[k]; });
       if (!Object.keys(patch).length) { $('#dlg').close(); return; }
       const r = await change(editing.id, patch, '保存しました');
@@ -996,7 +1020,7 @@ document.addEventListener('change', (e) => {
 });
 
 $('#fScope').onchange = (e) => { scope = e.target.value; store.set('scope', scope); loadSel = null; render(); };
-$('#fAll').onchange = (e) => { showAll = e.target.checked; store.set('all', showAll); render(); };
+$('#fRange').onchange = (e) => { range = e.target.value; store.set('range', range); render(); };
 $('#reload').onclick = () => load().then(() => toast('最新にしました'));
 const step = (n) => {
   if (mode === 'month') month = new Date(month.getFullYear(), month.getMonth() + n, 1, 12);
@@ -1092,7 +1116,7 @@ const demo = (() => {
   let n = 100;
   const mk = (dept, task, due, owner, extra) => Object.assign({
     id: 'T0' + (n++), dept, task, due: due == null ? '' : dd(due), owner, status: '未着手', parent: '', kind: '毎年', to: '', memo: '', draft: false,
-    updated: Date.now() - (5 + (n % 9)) * 864e5,
+    updated: Date.now() - (5 + (n % 9)) * 864e5, source: ['タスク画面（青山）', 'メール', '行事', 'フォーム（石田）'][n % 4],
   }, extra || {});
   const tasks = [
     mk('主将局', '指導者ミーティングの日程を確定して連絡', -2, '石田', { status: '進行中' }),
@@ -1155,7 +1179,7 @@ const demo = (() => {
     addTask(item) {
       const head = members.find((m) => m.head && m.dept === item.dept);
       const t = mk(item.dept, item.task, null, item.owner || (item.draft || !head ? '' : head.name),
-        { due: item.due, memo: item.memo, kind: item.yearly ? '毎年' : '今年だけ', updated: Date.now(), draft: !!item.draft, parent: item.parent || '' });
+        { due: item.due, memo: item.memo, source: 'タスク画面（' + me.name + '）', kind: item.yearly ? '毎年' : '今年だけ', updated: Date.now(), draft: !!item.draft, parent: item.parent || '' });
       (item.draft ? draft : tasks).push(t);
       return { task: t };
     },
