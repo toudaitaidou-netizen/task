@@ -286,6 +286,11 @@ fieldset { border: 0; padding: 0; margin: 0; }
 .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 9px 18px; font-size: 15px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .btn:disabled { opacity: .55; cursor: default; }
+.btn.danger { color: var(--late); border-color: var(--late); margin-right: auto; }
+.btn.danger.solid { background: var(--late); color: var(--bg); font-weight: 700; margin-right: 0; }
+.delname { margin: 0; font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+.delnote { margin: 0; font-size: 13px; color: var(--muted); }
+.delnote.kids { color: var(--late); font-weight: 700; }
 .daylist { padding: 0 18px 8px; overflow-y: auto; }
 
 /* お知らせ */
@@ -409,8 +414,22 @@ fieldset { border: 0; padding: 0; margin: 0; }
       <dl class="info" id="fInfo"></dl>
       <p class="msg" id="fMsg" role="alert"></p>
     </div>
-    <footer><button type="button" class="btn" id="fCancel">やめる</button><button type="submit" class="btn primary" id="fSave">保存</button></footer>
+    <footer><button type="button" class="btn danger" id="fDel" hidden>削除</button><button type="button" class="btn" id="fCancel">やめる</button><button type="submit" class="btn primary" id="fSave">保存</button></footer>
   </form>
+</dialog>
+
+<!-- 削除の確認（2段階目）。まちがえて足したものを消す用 -->
+<dialog id="delDlg" aria-labelledby="delTitle">
+  <div class="dlg">
+    <header><h2 id="delTitle" tabindex="-1">本当に削除しますか？</h2><button type="button" class="x" id="delClose" aria-label="閉じる">×</button></header>
+    <div class="fbody">
+      <p class="delname" id="delName"></p>
+      <p class="delnote kids" id="delKids" hidden></p>
+      <p class="delnote">画面と毎朝のメールから消えます。台帳には残るので、まちがえて消したときは主務に頼めば戻せます。</p>
+      <p class="msg" id="delMsg" role="alert"></p>
+    </div>
+    <footer><button type="button" class="btn" id="delCancel">やめる</button><button type="button" class="btn danger solid" id="delOk">削除する</button></footer>
+  </div>
 </dialog>
 
 <dialog id="dayDlg" aria-labelledby="dayTitle">
@@ -867,7 +886,53 @@ function openEdit(id) {
   $('#fSplit').hidden = !!parentOf(t);
   $('#fMsg').textContent = t.status === '要確認' ? '「要確認」は、今年も必要か決まっていないタスクです。必要なら「未着手」、いらなければ「不要」にしてください。' : '';
   $('#fSave').textContent = '保存';
+  $('#fDel').hidden = !canDelete(t);
   openDlg($('#dlg'));
+}
+
+// 消せるのは、足した本人と主務・主将だけ（サーバーでも同じ確認をする）
+function canDelete(t) {
+  const m = String(t.source || '').match(/^(?:タスク画面|フォーム(?:＋AI)?)（(.+)）$/);
+  return !!(D.me.boss || (m && m[1] === D.me.name));
+}
+// 1段階目：タスクの窓の「削除」→ 確認の窓を出す
+function askDelete() {
+  const t = editing;
+  if (!t) return;
+  const kids = kidsOf(t);
+  $('#delName').textContent = '「' + t.task + '」';
+  $('#delKids').textContent = kids.length ? '子タスク ' + kids.length + '件もいっしょに消えます' : '';
+  $('#delKids').hidden = !kids.length;
+  $('#delMsg').textContent = '';
+  $('#delOk').disabled = false;
+  openDlg($('#delDlg'));
+  $('#delCancel').focus();  // うっかりEnterで消えないように、最初は「やめる」に合わせておく
+}
+// 2段階目：「削除する」を押したときだけ本当に消す
+async function doDelete() {
+  const t = editing;
+  if (!t) return;
+  $('#delOk').disabled = true;
+  try {
+    const r = await api('deleteTask', t.id, t.updated);
+    if (r.conflict) {
+      replace(r.task);
+      $('#delDlg').close();
+      openEdit(t.id);
+      $('#fMsg').textContent = 'ほかの人が先に直していました。今の内容を確かめてから、もう一度「削除」を押してください。';
+      render();
+      return;
+    }
+    D.tasks = D.tasks.filter((x) => !r.deleted.includes(x.id));
+    D.draft = D.draft.filter((x) => !r.deleted.includes(x.id));
+    $('#delDlg').close();
+    $('#dlg').close();
+    render();
+    toast('「' + t.task.slice(0, 16) + '」を削除しました' + (r.deleted.length > 1 ? '（子タスクなど ' + (r.deleted.length - 1) + '件も）' : ''));
+  } catch (e) {
+    $('#delMsg').textContent = '削除できませんでした：' + errMsg(e);
+    $('#delOk').disabled = false;
+  }
 }
 
 let addParent = null;  // 子タスクを足しているときの親
@@ -890,6 +955,7 @@ function openAdd(due, parent) {
   $('#fInfo').hidden = true;
   $('#rowKids').hidden = true;
   $('#fSplit').hidden = true;
+  $('#fDel').hidden = true;
   $('#fMsg').textContent = parent ? '期限は親と同じ日にしてあります。1人・1回で終わる作業に分けてください。足したあと、続けて次も足せます。' : '';
   $('#fSave').textContent = '足す';
   openDlg($('#dlg'));
@@ -1050,6 +1116,9 @@ $('#fab').onclick = () => openAdd('');
 $('#fSplit').onclick = () => { const p = editing; if (p) openAdd(p.due, p); };
 $('#form').onsubmit = submitForm;
 $('#fClose').onclick = $('#fCancel').onclick = () => $('#dlg').close();
+$('#fDel').onclick = askDelete;
+$('#delOk').onclick = doDelete;
+$('#delClose').onclick = $('#delCancel').onclick = () => $('#delDlg').close();
 $('#dayClose').onclick = () => $('#dayDlg').close();
 $('#dayAdd').onclick = () => { $('#dayDlg').close(); openAdd($('#dayAdd').dataset.day); };
 document.querySelectorAll('[data-shift]').forEach((b) => {
@@ -1098,7 +1167,7 @@ document.addEventListener('drop', (e) => {
 });
 
 // ほかの人の変更を取り込む：画面に戻ってきたとき・2分ごと（入力中は待つ）
-const busy = () => $('#dlg').open || $('#dayDlg').open;
+const busy = () => $('#dlg').open || $('#dayDlg').open || $('#delDlg').open;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - lastLoad > 60000 && !busy()) load(true);
 });
@@ -1167,7 +1236,7 @@ const demo = (() => {
     { name: '二段審査', kind: '審査', start: dd(37), end: dd(37), next: false },
     { name: '春合宿', kind: '合宿', start: dd(106), end: dd(109), next: true },
   ];
-  const me = { name: '石田', dept: '主将局', core: true };
+  const me = { name: '石田', dept: '主将局', core: true, boss: false };
   return {
     appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48) }; },
     saveTask(id, change) {
@@ -1175,6 +1244,13 @@ const demo = (() => {
       Object.keys(change).forEach((k) => { t[k] = k === 'order' ? Number(change[k]) : change[k]; });
       t.updated = Date.now();
       return { task: t };
+    },
+    deleteTask(id) {
+      const all = tasks.concat(draft);
+      const t = all.find((x) => x.id === id);
+      const gone = [t].concat(all.filter((x) => x.parent === id && !!x.draft === !!t.draft)).map((x) => x.id);
+      [tasks, draft].forEach((l) => { for (let i = l.length - 1; i >= 0; i--) if (gone.includes(l[i].id)) l.splice(i, 1); });
+      return { deleted: gone };
     },
     addTask(item) {
       const head = members.find((m) => m.head && m.dept === item.dept);
