@@ -243,6 +243,29 @@ body.big .meet .rt { font-size: 19px; }
 body.big .meet .rm { font-size: 15px; }
 body.big .meet .lgroup h3 { font-size: 17px; }
 
+/* 親タスク（親ごとに子をまとめて見る） */
+.pgroup { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 12px; overflow: hidden; }
+.pgroup.pdone { opacity: .75; }
+.phead { display: flex; align-items: flex-start; gap: 4px; padding: 8px 10px 8px 4px; }
+.ptog { flex: none; border: 0; background: transparent; color: var(--muted); font-size: 14px; width: 32px; height: 32px; border-radius: 6px; }
+.ptog:hover { background: var(--sunk); }
+.pmain { flex: 1; min-width: 0; border: 0; background: transparent; text-align: left; padding: 4px 6px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; color: var(--ink); }
+.pmain:hover { background: var(--sunk); }
+.ptitle { display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 15.5px; min-width: 0; }
+.ptitle span { min-width: 0; overflow-wrap: anywhere; }
+.pmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12.5px; color: var(--muted); }
+.pmeta .late { color: var(--late); font-weight: 700; }
+.pbar { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: var(--sunk); border: 1px solid var(--line); overflow: hidden; vertical-align: middle; }
+.pbar i { display: block; height: 100%; background: var(--ok); }
+.padd { flex: none; align-self: center; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 12.5px; padding: 4px 10px; color: var(--accent); font-weight: 500; white-space: nowrap; }
+.pbody { border-top: 1px solid var(--line); }
+.pbody .rows { border: 0; border-radius: 0; }
+.pv .row.noown .rm span.own { color: var(--late); font-weight: 700; }
+.phide { margin: 0; padding: 6px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+.pbody .empty { border: 0; border-radius: 0; padding: 14px; }
+body.big .pv .ptitle { font-size: 19px; }
+body.big .pv .rt { font-size: 17px; }
+
 /* 追加ボタン */
 .fab {
   position: fixed; z-index: 6; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
@@ -325,6 +348,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
       <button role="tab" id="tab-cal" data-view="cal" aria-selected="true">カレンダー</button>
       <button role="tab" id="tab-load" data-view="load" aria-selected="false">混み具合</button>
       <button role="tab" id="tab-meet" data-view="meet" aria-selected="false">会議</button>
+      <button role="tab" id="tab-par" data-view="par" aria-selected="false">親タスク</button>
     </nav>
     <div class="filters">
       <label for="fScope" class="sr">表示する範囲</label>
@@ -382,6 +406,11 @@ fieldset { border: 0; padding: 0; margin: 0; }
     </div>
     <div class="sum" id="meetSum"></div>
     <div id="meetBody"></div>
+  </section>
+
+  <section id="v-par" class="pv" aria-labelledby="tab-par" hidden>
+    <p class="lead" id="parLead"></p>
+    <div id="parBody"></div>
   </section>
 </main>
 
@@ -561,9 +590,14 @@ function fillScope() {
 const scopeDept = () => (scope !== 'me' && scope !== 'all' ? scope : null);
 const isActive = (t) => ACTIVE.includes(t.status);
 const isLate = (t) => isActive(t) && t.due && pd(t.due) < today;
-function shown(t) {
+// 「出すタスク」の選択だけで見る（範囲＝自分・部局は見ない）
+function rangeOk(t) {
   if (range === 'todo' && !isActive(t)) return false;
   if (range === 'ahead' && !isActive(t) && (t.status === '不要' || !t.due || pd(t.due) < today)) return false;
+  return true;
+}
+function shown(t) {
+  if (!rangeOk(t)) return false;
   if (scope === 'me') return t.owner === D.me.name;
   if (scope === 'all') return true;
   return t.dept === scope;
@@ -611,20 +645,20 @@ function chipHtml(t) {
     '<i class="dot" style="--c:var(--c' + deptIndex(t.dept) + ')"></i>' + name + '</button>';
 }
 const kidsBadge = (ks) => (ks.length ? '<span class="badge kids">子 ' + ks.filter((k) => k.status === '済').length + '/' + ks.filter((k) => k.status !== '不要').length + ' 済</span>' : '');
-// ord：同じ日の並べ替えの↑↓を出す（{first, last}）
-function rowHtml(t, ord) {
+// ord：同じ日の並べ替えの↑↓を出す（{first, last}）／inPar：親タスクの中に並べるとき（親の名前は出さない）
+function rowHtml(t, ord, inPar) {
   const done = t.status === '済';
   const canTick = t.status !== '不要';
-  const p = parentOf(t);
+  const p = inPar ? null : parentOf(t);
   const ks = kidsOf(t);
-  return '<div class="row ' + stateCls(t) + (ks.length ? ' par' : '') + '">' +
+  return '<div class="row ' + stateCls(t) + (ks.length ? ' par' : '') + (!t.owner && isActive(t) ? ' noown' : '') + '">' +
     '<label class="tick"><input type="checkbox" data-tick="' + esc(t.id) + '"' + (done ? ' checked' : '') + (canTick ? '' : ' disabled') +
     ' aria-label="' + esc(t.task) + ' を済にする"></label>' +
     '<button type="button" class="rmain" data-id="' + esc(t.id) + '">' +
     '<span class="rt"><i class="dot" style="--c:var(--c' + deptIndex(t.dept) + ')"></i><span>' + esc(t.task) + '</span>' +
     (t.to ? '<span class="badge ext">提出物</span>' : '') + (t.status === '要確認' ? '<span class="badge check">要確認</span>' : '') +
     (t.status === '進行中' ? '<span class="badge" style="background:var(--accent-soft);color:var(--accent)">進行中</span>' : '') + kidsBadge(ks) + '</span>' +
-    '<span class="rm">' + (p ? '<span class="pn">▸ 親：' + esc(p.task) + '</span>' : '') + '<span>' + esc(t.dept) + '</span><span>' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
+    '<span class="rm">' + (p ? '<span class="pn">▸ 親：' + esc(p.task) + '</span>' : '') + '<span>' + esc(t.dept) + '</span><span class="own">' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
     (t.to ? '<span>提出先：' + esc(t.to) + '</span>' : '') + '</span></button>' +
     (ord ? '<span class="ord"><button type="button" data-move="-1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を上へ"' + (ord.first ? ' disabled' : '') + '>↑</button>' +
       '<button type="button" data-move="1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を下へ"' + (ord.last ? ' disabled' : '') + '>↓</button></span>' : '') + '</div>';
@@ -634,7 +668,8 @@ const rowsHtml = (list, ord) => '<div class="rows">' + list.map((t, i) => rowHtm
 /* ---------- 描く ---------- */
 function render() {
   if (!D) return;
-  ['cal', 'load', 'meet'].forEach((v) => {
+  if (!['cal', 'load', 'meet', 'par'].includes(view)) view = 'cal';
+  ['cal', 'load', 'meet', 'par'].forEach((v) => {
     $('#v-' + v).hidden = v !== view;
     $('#tab-' + v).setAttribute('aria-selected', String(v === view));
   });
@@ -651,6 +686,7 @@ function render() {
   if (view === 'cal') renderCal();
   if (view === 'load') renderLoad();
   if (view === 'meet') renderMeet();
+  if (view === 'par') renderPar();
 }
 
 function renderCal() {
@@ -803,6 +839,52 @@ function renderMeet() {
   $('#meetBody').innerHTML = secs.map((x) => '<div class="lgroup" id="' + x[0] + '"><h3 class="' + (x[3] === 'late' ? 'is-late' : '') + '">' + esc(x[1]) + '（' + x[2].length + '件）</h3>' +
     (x[2].length ? rowsHtml(x[2].sort(byDue)) : '<div class="empty">なし</div>') + '</div>').join('') +
     (scope === 'me' ? '<p class="lead">会議では、上の「表示する範囲」の「自分の担当」は使わず、全部局（または部局ごと）で出しています。</p>' : '');
+}
+
+// 親タスク：子のあるタスクごとに、子の担当・期限・状態と進み具合をまとめて見る
+// 出す親：親か子のどれかが、上の2つの選択（範囲・出すタスク）に当てはまるもの。子は「出すタスク」で絞る（自分の担当でも、ほかの人の子も見えるように）
+const parOpen = {};  // 開け閉めを押したものだけ覚える（2分ごとに最新にしても戻らないように）
+function renderPar() {
+  const parents = pool().filter((t) => kidsOf(t).length);
+  const groups = parents.map((p) => {
+    const kids = kidsOf(p);
+    const valid = kids.filter((k) => k.status !== '不要');
+    const done = valid.filter((k) => k.status === '済').length;
+    const finished = ['済', '不要'].includes(p.status) || (valid.length > 0 && done === valid.length);
+    const act = [p].concat(kids).filter((t) => isActive(t) && t.due).map((t) => t.due).sort();
+    return { p, kids, valid, done, finished, key: act[0] || p.due || '9999', late: kids.filter(isLate), noOwn: kids.filter((k) => isActive(k) && !k.owner),
+      hit: [p].concat(kids).some(shown) };
+  }).filter((g) => g.hit);
+  // 終わっていない親が先、その中は期限（子のいちばん近い期限）の近い順
+  groups.sort((a, b) => (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || a.key.localeCompare(b.key) || cmp(a.p, b.p));
+  $('#parLead').textContent = '子タスクに分けたタスク（親）ごとに、子の担当・期限・進み具合をまとめて出します。上の「表示する範囲」「出すタスク」に合わせています。親の名前を押すと親を直せます。' +
+    (groups.length ? '（' + groups.length + '件）' : '');
+  if (!groups.length) {
+    $('#parBody').innerHTML = '<div class="empty">' + (parents.length ? 'この範囲には親タスクがありません。上の選択を「全部」や「過去も含めて全部」にすると出ます。'
+      : '親タスクはまだありません。タスクを開いて「＋ 子タスクに分ける」を押すと、ここに出ます。') + '</div>';
+    return;
+  }
+  $('#parBody').innerHTML = groups.map((g) => {
+    const p = g.p;
+    const open = p.id in parOpen ? parOpen[p.id] : !g.finished;
+    const list = g.kids.filter(rangeOk).sort(byDue);
+    const hid = g.kids.length - list.length;
+    const pct = g.valid.length ? Math.round(g.done / g.valid.length * 100) : 0;
+    const bid = 'pb-' + esc(p.id);
+    return '<div class="pgroup' + (g.finished ? ' pdone' : '') + '">' +
+      '<div class="phead">' +
+      '<button type="button" class="ptog" data-ptog="' + esc(p.id) + '" aria-expanded="' + open + '" aria-controls="' + bid + '" aria-label="' + esc(p.task) + ' の子を' + (open ? '閉じる' : '開く') + '">' + (open ? '▼' : '▶') + '</button>' +
+      '<button type="button" class="pmain" data-id="' + esc(p.id) + '">' +
+      '<span class="ptitle"><i class="dot" style="--c:var(--c' + deptIndex(p.dept) + ')"></i><span>' + esc(p.task) + '</span>' +
+      (p.to ? '<span class="badge ext">提出物</span>' : '') + (['済', '不要'].includes(p.status) ? '<span class="badge kids">' + esc(p.status) + '</span>' : '') + '</span>' +
+      '<span class="pmeta"><span><span class="pbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></span>' +
+      '<span>子 ' + g.done + '/' + g.valid.length + ' 済</span><span>' + rel(p) + '</span><span>' + esc(p.dept) + '・' + esc(p.owner || '担当なし') + '</span>' +
+      (g.late.length ? '<span class="late">遅れ ' + g.late.length + '</span>' : '') + (g.noOwn.length ? '<span class="late">担当なし ' + g.noOwn.length + '</span>' : '') + '</span></button>' +
+      '<button type="button" class="padd" data-addkid="' + esc(p.id) + '" aria-label="' + esc(p.task) + ' に子タスクを足す">＋ 子</button></div>' +
+      '<div class="pbody" id="' + bid + '"' + (open ? '' : ' hidden') + '>' +
+      (list.length ? '<div class="rows">' + list.map((k) => rowHtml(k, null, true)).join('') + '</div>' : '<div class="empty">今の「出すタスク」で出る子はありません</div>') +
+      (hid ? '<p class="phide">ほかに済・不要の子 ' + hid + '件（上の「出すタスク」で出せます）</p>' : '') + '</div></div>';
+  }).join('');
 }
 
 /* ---------- 直す・足す ---------- */
@@ -1057,6 +1139,17 @@ document.addEventListener('click', (e) => {
   if (mv) { moveTask(mv.dataset.mid, Number(mv.dataset.move)); return; }
   const kid = e.target.closest('[data-kid]');
   if (kid) { openEdit(kid.dataset.kid); return; }
+  const tog = e.target.closest('[data-ptog]');
+  if (tog) {
+    const id = tog.dataset.ptog;
+    parOpen[id] = tog.getAttribute('aria-expanded') !== 'true';
+    renderPar();
+    const again = document.querySelector('[data-ptog="' + CSS.escape(id) + '"]');
+    if (again) again.focus();
+    return;
+  }
+  const ak = e.target.closest('[data-addkid]');
+  if (ak) { const p = allTasks().find((x) => x.id === ak.dataset.addkid); if (p) { parOpen[p.id] = true; openAdd(p.due, p); } return; }
   const tab = e.target.closest('[data-view]');
   if (tab) { view = tab.dataset.view; store.set('view', view); render(); window.scrollTo(0, 0); return; }
   const open = e.target.closest('[data-open-day]');
@@ -1214,8 +1307,11 @@ const demo = (() => {
     mk('内務', 'お歳暮の注文', 7, '中西'),
     mk('内務', '道場の備品の数を数える', 26, '中西', { status: '要確認', kind: '今年だけ' }),
     mk('OBOG', 'OBOG会メルマガの原稿', 13, '野口'),
-    mk('企画', '新年会の会場を探す', 16, '福田'),
-    mk('企画', '新年会の出欠フォームを作る', 22, ''),
+    mk('企画', '新年会を開く準備', 25, '福田', { id: 'T0P2' }),
+    mk('企画', '去年の参加者リストをもらう', -4, '福田', { parent: 'T0P2', status: '済' }),
+    mk('企画', '予算を経理と相談', -1, '福田', { parent: 'T0P2' }),
+    mk('企画', '新年会の会場を探す', 16, '福田', { parent: 'T0P2' }),
+    mk('企画', '新年会の出欠フォームを作る', 22, '', { parent: 'T0P2' }),
     mk('広報', '大会結果をインスタに載せる', -3, '', { status: '済' }),
     mk('常務', '城西大会の役員の割り振り', null, ''),
     mk('主将局', '部の共有アカウントのパスワード保管者を決める', null, '青山'),
