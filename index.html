@@ -828,7 +828,7 @@ function renderLoad() {
 }
 
 function renderMeet() {
-  const dept = scopeDept();
+  const dept = scopeDept() === PERSONAL ? null : scopeDept();  // 会議に個人は出さないので、範囲が「個人」なら全部局で
   // 会議は画面に映すので、個人のタスクは出さない
   const act = D.tasks.filter((t) => isActive(t) && t.dept !== PERSONAL && (!dept || t.dept === dept));
   const s = monday(today);
@@ -847,7 +847,7 @@ function renderMeet() {
     '<a href="#m-week">この1週間で済<b>' + doneWeek + '</b></a>';
   $('#meetBody').innerHTML = secs.map((x) => '<div class="lgroup" id="' + x[0] + '"><h3 class="' + (x[3] === 'late' ? 'is-late' : '') + '">' + esc(x[1]) + '（' + x[2].length + '件）</h3>' +
     (x[2].length ? rowsHtml(x[2].sort(byDue)) : '<div class="empty">なし</div>') + '</div>').join('') +
-    (scope === 'me' ? '<p class="lead">会議では、上の「表示する範囲」の「自分の担当」は使わず、全部局（または部局ごと）で出しています。</p>' : '');
+    (scope === 'me' || scope === PERSONAL ? '<p class="lead">会議では、上の「表示する範囲」の「' + (scope === 'me' ? '自分の担当' : '個人') + '」は使わず、全部局（または部局ごと）で出しています。個人のタスクは会議には出ません。</p>' : '');
 }
 
 // 親タスク：子のあるタスクごとに、子の担当・期限・状態と進み具合をまとめて見る
@@ -989,7 +989,7 @@ function openEdit(id) {
   $('#rowKids').hidden = !kids.length;
   $('#fKids').innerHTML = kids.map((k) => '<button type="button" data-kid="' + esc(k.id) + '" class="' + (['済', '不要'].includes(k.status) ? 'done' : '') + '">' +
     esc(k.task) + '<br><small>' + (k.due ? md(k.due) : '期限なし') + '・' + esc(k.owner || '担当なし') + '・' + esc(k.status) + '</small></button>').join('');
-  $('#fSplit').hidden = !!parentOf(t);
+  $('#fSplit').hidden = !!t.parent;  // 子には出さない（親が見えない子＝行事の子なども）
   $('#fMsg').textContent = t.status === '要確認' ? '「要確認」は、今年も必要か決まっていないタスクです。必要なら「未着手」、いらなければ「不要」にしてください。' : '';
   $('#fSave').textContent = '保存';
   $('#fDel').hidden = !canDelete(t);
