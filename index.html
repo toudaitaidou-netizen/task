@@ -243,6 +243,11 @@ body.big .meet .rt { font-size: 19px; }
 body.big .meet .rm { font-size: 15px; }
 body.big .meet .lgroup h3 { font-size: 17px; }
 
+/* 個人のタスク（自分だけに見える）：中が白い丸と「自分だけ」の印 */
+.dot.mine { background: transparent; border: 2px solid var(--accent); width: 9px; height: 9px; }
+.badge.mine { background: var(--accent-soft); color: var(--accent); }
+.dhint { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+
 /* 親タスク（親ごとに子をまとめて見る） */
 .pgroup { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 12px; overflow: hidden; }
 .pgroup.pdone { opacity: .75; }
@@ -428,11 +433,11 @@ fieldset { border: 0; padding: 0; margin: 0; }
         </div>
         <div><label for="fOwner">担当</label><select id="fOwner"></select></div>
       </div>
-      <div class="yearly">
+      <div class="yearly" id="rowYearly">
         <label class="yr" for="fYearly"><input type="checkbox" id="fYearly"> 来年もやる（毎年）</label>
         <p class="hint">チェックすると、来年も同じ日付で台帳に入ります。毎年のことなのに台帳になかったものは、ここにチェック</p>
       </div>
-      <div id="rowDept"><label for="fDept">部局</label><select id="fDept"></select></div>
+      <div id="rowDept"><label for="fDept" id="fDeptLabel">部局</label><select id="fDept"></select><p class="dhint" id="fDeptHint" hidden></p></div>
       <fieldset id="rowStatus"><legend>状態</legend><div class="seg" id="fStatus"></div></fieldset>
       <div id="rowMemo"><label for="fMemo" id="fMemoLabel">メモ（任意）</label><textarea id="fMemo" rows="3" maxlength="500"></textarea></div>
       <div id="rowKids" hidden>
@@ -483,6 +488,8 @@ const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&':
 const WD = ['日', '月', '火', '水', '木', '金', '土'];
 const ACTIVE = ['未着手', '進行中'];
 const EDIT_STATUS = ['未着手', '進行中', '済', '不要'];
+const PERSONAL = '個人';  // 個人のタスク：足した本人にだけ見える（サーバーもほかの人には渡さない）
+const deptLabel = (d) => (d === PERSONAL ? '個人（自分だけ）' : d);
 
 /* ---------- 日付（'YYYY-MM-DD' の文字で持ち、計算するときだけ正午の Date にする） ---------- */
 const pd = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d, 12); };
@@ -579,9 +586,10 @@ async function load(quiet) {
 }
 
 /* ---------- 絞り込み ---------- */
+const dotHtml = (d) => (d === PERSONAL ? '<i class="dot mine" aria-hidden="true"></i>' : '<i class="dot" style="--c:var(--c' + deptIndex(d) + ')"></i>');
 function deptIndex(d) { const i = ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務'].indexOf(d); return i < 0 ? 9 : i; }
 function fillScope() {
-  const opts = [['me', '自分の担当'], ['all', '全部']].concat(D.depts.map((d) => [d, d + 'のタスク']));
+  const opts = [['me', '自分の担当'], ['all', '全部']].concat(D.depts.map((d) => [d, deptLabel(d) + 'のタスク']));
   if (!scope) scope = D.tasks.some((t) => t.owner === D.me.name && ACTIVE.includes(t.status)) ? 'me' : 'all';
   if (!opts.some((o) => o[0] === scope)) scope = 'me';
   $('#fScope').innerHTML = opts.map((o) => '<option value="' + esc(o[0]) + '"' + (o[0] === scope ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('');
@@ -638,11 +646,11 @@ function rel(t) {
 }
 function chipHtml(t) {
   const p = parentOf(t);
-  const tip = (p ? '親：' + p.task + '｜' : '') + t.task + '｜' + t.dept + '・' + (t.owner || '担当なし') + (t.to ? '・提出先 ' + t.to : '');
+  const tip = (p ? '親：' + p.task + '｜' : '') + t.task + '｜' + (t.dept === PERSONAL ? '個人（自分だけに見える）' : t.dept) + '・' + (t.owner || '担当なし') + (t.to ? '・提出先 ' + t.to : '');
   const name = p ? '<span class="cw"><small class="pn">▸ ' + esc(p.task) + '</small><span>' + esc(t.task) + '</span></span>' : '<span>' + esc(t.task) + '</span>';
   return '<button type="button" class="chip ' + stateCls(t) + (kidsOf(t).length ? ' par' : '') + '" data-id="' + esc(t.id) + '"' +
     (mode !== 'list' && isActive(t) ? ' draggable="true"' : '') + ' title="' + esc(tip) + '">' +
-    '<i class="dot" style="--c:var(--c' + deptIndex(t.dept) + ')"></i>' + name + '</button>';
+    dotHtml(t.dept) + name + '</button>';
 }
 const kidsBadge = (ks) => (ks.length ? '<span class="badge kids">子 ' + ks.filter((k) => k.status === '済').length + '/' + ks.filter((k) => k.status !== '不要').length + ' 済</span>' : '');
 // ord：同じ日の並べ替えの↑↓を出す（{first, last}）／inPar：親タスクの中に並べるとき（親の名前は出さない）
@@ -655,7 +663,7 @@ function rowHtml(t, ord, inPar) {
     '<label class="tick"><input type="checkbox" data-tick="' + esc(t.id) + '"' + (done ? ' checked' : '') + (canTick ? '' : ' disabled') +
     ' aria-label="' + esc(t.task) + ' を済にする"></label>' +
     '<button type="button" class="rmain" data-id="' + esc(t.id) + '">' +
-    '<span class="rt"><i class="dot" style="--c:var(--c' + deptIndex(t.dept) + ')"></i><span>' + esc(t.task) + '</span>' +
+    '<span class="rt">' + dotHtml(t.dept) + '<span>' + esc(t.task) + '</span>' + (t.dept === PERSONAL ? '<span class="badge mine">自分だけ</span>' : '') +
     (t.to ? '<span class="badge ext">提出物</span>' : '') + (t.status === '要確認' ? '<span class="badge check">要確認</span>' : '') +
     (t.status === '進行中' ? '<span class="badge" style="background:var(--accent-soft);color:var(--accent)">進行中</span>' : '') + kidsBadge(ks) + '</span>' +
     '<span class="rm">' + (p ? '<span class="pn">▸ 親：' + esc(p.task) + '</span>' : '') + '<span>' + esc(t.dept) + '</span><span class="own">' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
@@ -821,7 +829,8 @@ function renderLoad() {
 
 function renderMeet() {
   const dept = scopeDept();
-  const act = D.tasks.filter((t) => isActive(t) && (!dept || t.dept === dept));
+  // 会議は画面に映すので、個人のタスクは出さない
+  const act = D.tasks.filter((t) => isActive(t) && t.dept !== PERSONAL && (!dept || t.dept === dept));
   const s = monday(today);
   const wEnd = add(s, 6), nwEnd = add(s, 13);
   const n = (t) => diff(today, pd(t.due));
@@ -832,7 +841,7 @@ function renderMeet() {
     ['m-ext', '外部への提出物（4週間以内）', act.filter((t) => t.to && t.due && n(t) >= 0 && n(t) <= 28)],
     ['m-none', '担当が決まっていないもの（4週間以内）', act.filter((t) => !t.owner && t.due && n(t) <= 28)],
   ];
-  const doneWeek = D.tasks.filter((t) => t.status === '済' && t.updated && Date.now() - t.updated < 7 * 864e5 && (!dept || t.dept === dept)).length;
+  const doneWeek = D.tasks.filter((t) => t.status === '済' && t.dept !== PERSONAL && t.updated && Date.now() - t.updated < 7 * 864e5 && (!dept || t.dept === dept)).length;
   $('#meetTitle').textContent = mdShort(today) + '（' + WD[today.getDay()] + '）の確認・' + (dept || '全部局');
   $('#meetSum').innerHTML = secs.map((x) => '<a href="#' + x[0] + '" class="' + (x[3] || '') + '">' + esc(x[1].replace(/（.*$/, '')) + '<b>' + x[2].length + '</b></a>').join('') +
     '<a href="#m-week">この1週間で済<b>' + doneWeek + '</b></a>';
@@ -875,7 +884,7 @@ function renderPar() {
       '<div class="phead">' +
       '<button type="button" class="ptog" data-ptog="' + esc(p.id) + '" aria-expanded="' + open + '" aria-controls="' + bid + '" aria-label="' + esc(p.task) + ' の子を' + (open ? '閉じる' : '開く') + '">' + (open ? '▼' : '▶') + '</button>' +
       '<button type="button" class="pmain" data-id="' + esc(p.id) + '">' +
-      '<span class="ptitle"><i class="dot" style="--c:var(--c' + deptIndex(p.dept) + ')"></i><span>' + esc(p.task) + '</span>' +
+      '<span class="ptitle">' + dotHtml(p.dept) + '<span>' + esc(p.task) + '</span>' + (p.dept === PERSONAL ? '<span class="badge mine">自分だけ</span>' : '') +
       (p.to ? '<span class="badge ext">提出物</span>' : '') + (['済', '不要'].includes(p.status) ? '<span class="badge kids">' + esc(p.status) + '</span>' : '') + '</span>' +
       '<span class="pmeta"><span><span class="pbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></span>' +
       '<span>子 ' + g.done + '/' + g.valid.length + ' 済</span><span>' + rel(p) + '</span><span>' + esc(p.dept) + '・' + esc(p.owner || '担当なし') + '</span>' +
@@ -947,6 +956,21 @@ function openEdit(id) {
   $('#fOwner').innerHTML = ownerOptions(t.owner, '（担当なし）');
   $('#fOwner').value = t.owner;
   $('#rowDept').hidden = true;
+  $('#fDeptLabel').textContent = '部局';
+  $('#fDeptHint').hidden = true;
+  // 個人のタスク：担当は自分のまま・来年には写さない。部局を選んで保存すると部のタスク（みんなに見える）になる。子だけは変えられない
+  const mine = t.dept === PERSONAL;
+  $('#fOwner').disabled = mine;
+  $('#rowYearly').hidden = mine;
+  if (mine && !t.parent) {
+    $('#fDeptLabel').textContent = '見える人';
+    $('#fDept').innerHTML = '<option value="' + PERSONAL + '">自分だけ（個人）</option>' +
+      D.depts.filter((d) => d !== PERSONAL).map((d) => '<option value="' + esc(d) + '">みんなに見せる：' + esc(d) + 'のタスクにする</option>').join('');
+    $('#fDept').value = PERSONAL;
+    $('#fDeptHint').textContent = '部局を選んで保存すると、その部局のタスクとしてみんなに見えるようになります（子タスクもいっしょに。個人には戻せません）';
+    $('#fDeptHint').hidden = false;
+    $('#rowDept').hidden = false;
+  }
   $('#fMemoLabel').textContent = 'メモ（書き直し・追記できます）';
   $('#fMemo').value = t.memo || '';
   $('#rowMemo').hidden = false;
@@ -1026,7 +1050,14 @@ function openAdd(due, parent) {
   $('#fTask').value = '';
   $('#fDue').value = due || '';
   const dept = parent ? parent.dept : scopeDept() || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
-  $('#fDept').innerHTML = D.depts.map((d) => '<option value="' + esc(d) + '"' + (d === dept ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
+  // 個人のタスクは今年の台帳にだけ。子は親と同じ（個人の親には個人の子、部の親には部の子）
+  const draftAdd = parent ? !!parent.draft : which === 'draft';
+  let opts = D.depts.filter((d) => d !== PERSONAL || !draftAdd);
+  if (parent) opts = opts.filter((d) => (d === PERSONAL) === (parent.dept === PERSONAL));
+  $('#fDept').innerHTML = opts.map((d) => '<option value="' + esc(d) + '"' + (d === dept ? ' selected' : '') + '>' + esc(deptLabel(d)) + '</option>').join('');
+  $('#fDeptLabel').textContent = '部局';
+  $('#fOwner').disabled = false;
+  $('#rowYearly').hidden = false;
   $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ');
   $('#fOwner').value = parent ? '' : scope === 'me' ? D.me.name : '';
   $('#fMemo').value = '';
@@ -1040,8 +1071,22 @@ function openAdd(due, parent) {
   $('#fDel').hidden = true;
   $('#fMsg').textContent = parent ? '期限は親と同じ日にしてあります。1人・1回で終わる作業に分けてください。足したあと、続けて次も足せます。' : '';
   $('#fSave').textContent = '足す';
+  syncPersonal();
   openDlg($('#dlg'));
   setTimeout(() => $("#fTask").focus(), 30);
+}
+
+// 足すとき「個人（自分だけ）」を選んだら：担当は自分に決まり、来年もやるは出さない
+function syncPersonal() {
+  if (editing) return;
+  const p = $('#fDept').value === PERSONAL;
+  if (p) $('#fOwner').innerHTML = '<option value="">' + esc(D.me.name) + '（自分）</option>';
+  else if ($('#fOwner').disabled) { $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ'); $('#fOwner').value = scope === 'me' && !addParent ? D.me.name : ''; }
+  $('#fOwner').disabled = p;
+  $('#rowYearly').hidden = p;
+  if (p) $('#fYearly').checked = false;
+  $('#fDeptHint').textContent = p ? '自分にだけ見えます（主務・主将の画面や会議の画面にも出ません）。担当は自分です' : '';
+  $('#fDeptHint').hidden = !p;
 }
 
 function openDlg(d) { if (!d.open) d.showModal(); d.querySelector("h2").focus(); }
@@ -1059,9 +1104,10 @@ async function submitForm(e) {
       // 毎年のチェック：外したら「今年だけ」。もともと「2年ごと」なら、チェックが付いたままのときはそのまま
       const kind = $('#fYearly').checked ? (isYearly(editing.kind) ? editing.kind : '毎年') : '今年だけ';
       const now = { task, due: $('#fDue').value, owner: $('#fOwner').value, status: st ? st.value : editing.status, kind, memo: $('#fMemo').value.trim() };
+      if (editing.dept === PERSONAL && !$('#rowDept').hidden) now.dept = $('#fDept').value;  // 個人→部のタスクにする
       Object.keys(now).forEach((k) => { if (String(now[k]) !== String(editing[k] || '')) patch[k] = now[k]; });
       if (!Object.keys(patch).length) { $('#dlg').close(); return; }
-      const r = await change(editing.id, patch, '保存しました');
+      const r = await change(editing.id, patch, '保存しました', !patch.dept);  // 部のタスクにしたら戻せない（「元に戻す」を出さない）
       if (r === 'ok') $('#dlg').close();
       if (r === 'conflict') { openEdit(editing.id); $('#fMsg').textContent = 'ほかの人が先に直していました。今の内容にしたので、もう一度直して保存してください。'; }
     } else {
@@ -1089,7 +1135,7 @@ async function submitForm(e) {
       }
       render();
       toast((item.draft ? '来年の下書きに足しました' : '足しました') + (shown(r.task) ? '' : '（今の「表示する範囲」には出ません）') +
-        (r.task.owner && !item.owner ? '・担当：' + r.task.owner : '') + (r.note ? '。' + r.note : ''));
+        (r.task.owner && !item.owner && item.dept !== PERSONAL ? '・担当：' + r.task.owner : '') + (item.dept === PERSONAL ? '（自分だけに見えます）' : '') + (r.note ? '。' + r.note : ''));
     }
   } catch (err) {
     $('#fMsg').textContent = '保存できませんでした：' + errMsg(err);
@@ -1208,6 +1254,7 @@ $('#wDraft').onclick = () => setWhich('draft');
 $('#fab').onclick = () => openAdd('');
 $('#fSplit').onclick = () => { const p = editing; if (p) openAdd(p.due, p); };
 $('#form').onsubmit = submitForm;
+$('#fDept').onchange = syncPersonal;
 $('#fClose').onclick = $('#fCancel').onclick = () => $('#dlg').close();
 $('#fDel').onclick = askDelete;
 $('#delOk').onclick = doDelete;
@@ -1315,6 +1362,10 @@ const demo = (() => {
     mk('広報', '大会結果をインスタに載せる', -3, '', { status: '済' }),
     mk('常務', '城西大会の役員の割り振り', null, ''),
     mk('主将局', '部の共有アカウントのパスワード保管者を決める', null, '青山'),
+    // 個人のタスク（石田さんにだけ見える）
+    mk('個人', '道着をクリーニングに出す', 1, '石田', { kind: '今年だけ', source: 'タスク画面（石田）' }),
+    mk('個人', '全日本の個人エントリーを考える', 10, '石田', { kind: '今年だけ', source: 'タスク画面（石田）', id: 'T0P3' }),
+    mk('個人', '去年の動画を見返す', 5, '石田', { kind: '今年だけ', source: 'タスク画面（石田）', parent: 'T0P3' }),
   ];
   // 来年の下書き（納会＝48日後）と行事
   const D2 = { draft: true, owner: '' };
@@ -1334,12 +1385,18 @@ const demo = (() => {
   ];
   const me = { name: '石田', dept: '主将局', core: true, boss: false };
   return {
-    appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48) }; },
+    appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務', '個人'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48) }; },
     saveTask(id, change) {
       const t = tasks.concat(draft).find((x) => x.id === id);
+      let note = '';
+      if (change.dept && t.dept === '個人') {  // 個人→部：子もいっしょに
+        const ks2 = tasks.filter((x) => x.parent === id && x.dept === '個人');
+        ks2.forEach((x) => { x.dept = change.dept; });
+        note = 'みんなに見えるようになりました' + (ks2.length ? '（子タスク ' + ks2.length + '件も）' : '');
+      }
       Object.keys(change).forEach((k) => { t[k] = k === 'order' ? Number(change[k]) : change[k]; });
       t.updated = Date.now();
-      return { task: t };
+      return { task: t, note };
     },
     deleteTask(id) {
       const all = tasks.concat(draft);
@@ -1350,7 +1407,7 @@ const demo = (() => {
     },
     addTask(item) {
       const head = members.find((m) => m.head && m.dept === item.dept);
-      const t = mk(item.dept, item.task, null, item.owner || (item.draft || !head ? '' : head.name),
+      const t = mk(item.dept, item.task, null, item.dept === '個人' ? me.name : item.owner || (item.draft || !head ? '' : head.name),
         { due: item.due, memo: item.memo, source: 'タスク画面（' + me.name + '）', kind: item.yearly ? '毎年' : '今年だけ', updated: Date.now(), draft: !!item.draft, parent: item.parent || '' });
       (item.draft ? draft : tasks).push(t);
       return { task: t };
