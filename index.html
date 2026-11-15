@@ -94,6 +94,7 @@ button { cursor: pointer; }
 .boards button + button { border-left: 1px solid var(--line); }
 .boards button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .brand.multi { flex-wrap: wrap; row-gap: 4px; }
+.boards .bn { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: var(--late); color: #fff; font-family: inherit; font-size: 11px; line-height: 18px; text-align: center; vertical-align: 2px; letter-spacing: 0; }
 .tabs { display: flex; gap: 2px; background: var(--sunk); padding: 3px; border-radius: 10px; margin-left: auto; }
 .tabs button {
   border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; font-size: 14px; color: var(--muted); font-weight: 500;
@@ -628,8 +629,14 @@ function fillBoards() {
   $('#brandName').hidden = !!list.length;
   $('#brand').classList.toggle('multi', !!list.length);
   if (!list.length) return;
+  // 見ていないほうのボードに、自分の「遅れ・3日以内」があれば件数を出す（切り替え忘れで見落とさないように）
+  const mine = (b) => D.tasks.filter((t) => (b === 'club' ? !isTeamD(t.dept) : t.dept === b) && t.owner === D.me.name && isActive(t) && t.due && diff(today, pd(t.due)) <= 3).length;
   $('#boards').innerHTML = [['club', '部活タスク']].concat(list.map((x) => [x, x]))
-    .map((b) => '<button type="button" data-board="' + esc(b[0]) + '" aria-pressed="' + (b[0] === board) + '">' + esc(b[1]) + '</button>').join('');
+    .map((b) => {
+      const n = b[0] === board ? 0 : mine(b[0]);
+      return '<button type="button" data-board="' + esc(b[0]) + '" aria-pressed="' + (b[0] === board) + '"' +
+        (n ? ' aria-label="' + esc(b[1]) + '（自分の遅れ・3日以内のタスク ' + n + '件）"' : '') + '>' + esc(b[1]) + (n ? '<span class="bn" aria-hidden="true">' + n + '</span>' : '') + '</button>';
+    }).join('');
   document.title = boardName();
 }
 function setBoard(b) {
@@ -642,6 +649,8 @@ function setBoard(b) {
   fillBoards();
   fillScope();
   render();
+  const now = document.querySelector('#boards [aria-pressed="true"]');
+  if (now) now.focus();
 }
 const scopeDept = () => (scope !== 'me' && scope !== 'all' ? scope : null);
 const isActive = (t) => ACTIVE.includes(t.status);
@@ -724,6 +733,7 @@ const rowsHtml = (list, ord) => '<div class="rows">' + list.map((t, i) => rowHtm
 /* ---------- 描く ---------- */
 function render() {
   if (!D) return;
+  if (myTeams().length && !$('#boards').contains(document.activeElement)) fillBoards();  // 件数の印を今の中身に合わせる
   if (!['cal', 'load', 'meet', 'par'].includes(view)) view = 'cal';
   ['cal', 'load', 'meet', 'par'].forEach((v) => {
     $('#v-' + v).hidden = v !== view;
