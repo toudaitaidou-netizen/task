@@ -88,6 +88,12 @@ button { cursor: pointer; }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .brand b { font-family: var(--font-mark); font-size: 19px; letter-spacing: .04em; }
 .brand span { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ボードの切り替え（部活タスク／新歓首脳など）。チームに入っている人にだけ出る */
+.boards { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; flex: none; }
+.boards button { border: 0; background: var(--surface); padding: 6px 12px; font-family: var(--font-mark); font-size: 16px; font-weight: 700; color: var(--muted); letter-spacing: .03em; min-height: 36px; }
+.boards button + button { border-left: 1px solid var(--line); }
+.boards button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.brand.multi { flex-wrap: wrap; row-gap: 4px; }
 .tabs { display: flex; gap: 2px; background: var(--sunk); padding: 3px; border-radius: 10px; margin-left: auto; }
 .tabs button {
   border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; font-size: 14px; color: var(--muted); font-weight: 500;
@@ -348,7 +354,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
 
 <header class="top">
   <div class="top-in">
-    <div class="brand"><b>部活タスク</b><span id="who">読み込み中…</span></div>
+    <div class="brand" id="brand"><b id="brandName">部活タスク</b><div class="boards" id="boards" role="group" aria-label="どのタスクを見るか" hidden></div><span id="who">読み込み中…</span></div>
     <nav class="tabs" role="tablist" aria-label="表示">
       <button role="tab" id="tab-cal" data-view="cal" aria-selected="true">カレンダー</button>
       <button role="tab" id="tab-load" data-view="load" aria-selected="false">混み具合</button>
@@ -521,7 +527,14 @@ let month = null;
 let wk = null;         // 4週・リストの始まり（月曜）
 let editing = null;    // 直しているタスク（追加のときは null）
 let which = 'live';    // live＝今の台帳／draft＝来年の下書き（11月〜納会のあいだだけ出る）
-const pool = () => (which === 'draft' ? D.draft : D.tasks);
+// ボード：club＝部活タスク（部局・個人）／チームの名前（新歓首脳など）＝そのチームのタスクだけ
+let board = store.get('board', 'club');
+const myTeams = () => (D && D.me.teams) || [];
+const isTeamD = (d) => myTeams().includes(d);
+const inBoard = (t) => (board === 'club' ? !isTeamD(t.dept) : t.dept === board);
+const boardMembers = () => (board === 'club' ? D.members : D.members.filter((m) => (m.teams || []).includes(board)));
+const boardName = () => (board === 'club' ? '部活タスク' : board);
+const pool = () => (which === 'draft' ? D.draft : D.tasks).filter(inBoard);
 const allTasks = () => D.tasks.concat(D.draft);
 let loadSel = null;
 let lastLoad = 0;
@@ -557,6 +570,8 @@ function useData(data) {
   if (!month) month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
   if (!wk) wk = monday(today);
   $('#who').textContent = D.me.name + ' さん（' + (D.me.dept || '部局なし') + '）';
+  if (board !== 'club' && !myTeams().includes(board)) board = 'club';
+  fillBoards();
   fillScope();
   render();
 }
@@ -589,11 +604,34 @@ async function load(quiet) {
 const dotHtml = (d) => (d === PERSONAL ? '<i class="dot mine" aria-hidden="true"></i>' : '<i class="dot" style="--c:var(--c' + deptIndex(d) + ')"></i>');
 function deptIndex(d) { const i = ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務'].indexOf(d); return i < 0 ? 9 : i; }
 function fillScope() {
-  const opts = [['me', '自分の担当'], ['all', '全部']].concat(D.depts.map((d) => [d, deptLabel(d) + 'のタスク']));
+  // チームのボードでは部局の選択はない（自分の担当／全部だけ）
+  const opts = [['me', '自分の担当'], ['all', '全部']].concat(board === 'club' ? D.depts.filter((d) => !isTeamD(d)).map((d) => [d, deptLabel(d) + 'のタスク']) : []);
   if (!scope) scope = D.tasks.some((t) => t.owner === D.me.name && ACTIVE.includes(t.status)) ? 'me' : 'all';
-  if (!opts.some((o) => o[0] === scope)) scope = 'me';
+  if (!opts.some((o) => o[0] === scope)) scope = board === 'club' ? 'me' : 'all';
   $('#fScope').innerHTML = opts.map((o) => '<option value="' + esc(o[0]) + '"' + (o[0] === scope ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('');
   $('#fRange').value = range;
+}
+// 上の切り替え：チームに入っている人にだけ出す。押すと、カレンダー・混み具合・会議・親タスクがそのボードだけになる
+function fillBoards() {
+  const list = myTeams();
+  $('#boards').hidden = !list.length;
+  $('#brandName').hidden = !!list.length;
+  $('#brand').classList.toggle('multi', !!list.length);
+  if (!list.length) return;
+  $('#boards').innerHTML = [['club', '部活タスク']].concat(list.map((x) => [x, x]))
+    .map((b) => '<button type="button" data-board="' + esc(b[0]) + '" aria-pressed="' + (b[0] === board) + '">' + esc(b[1]) + '</button>').join('');
+  document.title = boardName();
+}
+function setBoard(b) {
+  if (b === board) return;
+  board = b;
+  store.set('board', b);
+  // 部局で絞っていたら、チームのボードでは「全部」に（チームには部局の選択がない）
+  if (b !== 'club' && scope !== 'me') scope = 'all';
+  loadSel = null;
+  fillBoards();
+  fillScope();
+  render();
 }
 const scopeDept = () => (scope !== 'me' && scope !== 'all' ? scope : null);
 const isActive = (t) => ACTIVE.includes(t.status);
@@ -787,7 +825,7 @@ function renderLoad() {
   const tasks = pool().filter((t) => isActive(t) && (!dept || t.dept === dept));
   const rows = {};
   const ensure = (n) => (rows[n] = rows[n] || { name: n, late: [], w: weeks.map(() => []), dept: '' });
-  D.members.forEach((m) => { if (!dept || m.dept === dept) ensure(m.name).dept = m.dept; });
+  boardMembers().forEach((m) => { if (!dept || m.dept === dept) ensure(m.name).dept = m.dept; });
   tasks.forEach((t) => {
     const r = ensure(t.owner || '');
     if (!t.due) return;
@@ -830,7 +868,7 @@ function renderLoad() {
 function renderMeet() {
   const dept = scopeDept() === PERSONAL ? null : scopeDept();  // 会議に個人は出さないので、範囲が「個人」なら全部局で
   // 会議は画面に映すので、個人のタスクは出さない
-  const act = D.tasks.filter((t) => isActive(t) && t.dept !== PERSONAL && (!dept || t.dept === dept));
+  const act = D.tasks.filter((t) => inBoard(t) && isActive(t) && t.dept !== PERSONAL && (!dept || t.dept === dept));
   const s = monday(today);
   const wEnd = add(s, 6), nwEnd = add(s, 13);
   const n = (t) => diff(today, pd(t.due));
@@ -841,8 +879,8 @@ function renderMeet() {
     ['m-ext', '外部への提出物（4週間以内）', act.filter((t) => t.to && t.due && n(t) >= 0 && n(t) <= 28)],
     ['m-none', '担当が決まっていないもの（4週間以内）', act.filter((t) => !t.owner && t.due && n(t) <= 28)],
   ];
-  const doneWeek = D.tasks.filter((t) => t.status === '済' && t.dept !== PERSONAL && t.updated && Date.now() - t.updated < 7 * 864e5 && (!dept || t.dept === dept)).length;
-  $('#meetTitle').textContent = mdShort(today) + '（' + WD[today.getDay()] + '）の確認・' + (dept || '全部局');
+  const doneWeek = D.tasks.filter((t) => inBoard(t) && t.status === '済' && t.dept !== PERSONAL && t.updated && Date.now() - t.updated < 7 * 864e5 && (!dept || t.dept === dept)).length;
+  $('#meetTitle').textContent = mdShort(today) + '（' + WD[today.getDay()] + '）の確認・' + (dept || (board === 'club' ? '全部局' : board));
   $('#meetSum').innerHTML = secs.map((x) => '<a href="#' + x[0] + '" class="' + (x[3] || '') + '">' + esc(x[1].replace(/（.*$/, '')) + '<b>' + x[2].length + '</b></a>').join('') +
     '<a href="#m-week">この1週間で済<b>' + doneWeek + '</b></a>';
   $('#meetBody').innerHTML = secs.map((x) => '<div class="lgroup" id="' + x[0] + '"><h3 class="' + (x[3] === 'late' ? 'is-late' : '') + '">' + esc(x[1]) + '（' + x[2].length + '件）</h3>' +
@@ -934,9 +972,10 @@ async function change(id, patch, msg, canUndo = true) {
 
 function ownerOptions(current, emptyLabel) {
   const groups = {};
-  D.members.forEach((m) => { (groups[m.dept || 'その他'] = groups[m.dept || 'その他'] || []).push(m); });
+  if (board !== 'club' && emptyLabel === '局長におまかせ') emptyLabel = '（担当なし）';  // チームには局長がいない
+  boardMembers().forEach((m) => { (groups[m.dept || 'その他'] = groups[m.dept || 'その他'] || []).push(m); });
   let h = '<option value="">' + esc(emptyLabel) + '</option>';
-  if (current && !D.members.some((m) => m.name === current)) h += '<option value="' + esc(current) + '">' + esc(current) + '（メンバー表にない）</option>';
+  if (current && !boardMembers().some((m) => m.name === current)) h += '<option value="' + esc(current) + '">' + esc(current) + '（メンバー表にない）</option>';
   Object.keys(groups).sort((a, b) => deptIndex(a) - deptIndex(b)).forEach((g) => {
     h += '<optgroup label="' + esc(g) + '">' + groups[g].map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.head ? '（局長）' : '') + '</option>').join('') + '</optgroup>';
   });
@@ -965,7 +1004,7 @@ function openEdit(id) {
   if (mine && !t.parent) {
     $('#fDeptLabel').textContent = '見える人';
     $('#fDept').innerHTML = '<option value="' + PERSONAL + '">自分だけ（個人）</option>' +
-      D.depts.filter((d) => d !== PERSONAL).map((d) => '<option value="' + esc(d) + '">みんなに見せる：' + esc(d) + 'のタスクにする</option>').join('');
+      D.depts.filter((d) => d !== PERSONAL).map((d) => '<option value="' + esc(d) + '">' + (isTeamD(d) ? esc(d) + 'のみんなに見せる' : 'みんなに見せる：' + esc(d) + 'のタスクにする') + '</option>').join('');
     $('#fDept').value = PERSONAL;
     $('#fDeptHint').textContent = '部局を選んで保存すると、その部局のタスクとしてみんなに見えるようになります（子タスクもいっしょに。個人には戻せません）';
     $('#fDeptHint').hidden = false;
@@ -1049,11 +1088,12 @@ function openAdd(due, parent) {
   $('#fYearly').checked = parent ? isYearly(parent.kind) : false;
   $('#fTask').value = '';
   $('#fDue').value = due || '';
-  const dept = parent ? parent.dept : scopeDept() || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
+  const dept = parent ? parent.dept : board !== 'club' ? board : scopeDept() || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
   // 個人のタスクは今年の台帳にだけ。子は親と同じ（個人の親には個人の子、部の親には部の子）
   const draftAdd = parent ? !!parent.draft : which === 'draft';
   let opts = D.depts.filter((d) => d !== PERSONAL || !draftAdd);
   if (parent) opts = opts.filter((d) => (d === PERSONAL) === (parent.dept === PERSONAL));
+  opts = opts.filter((d) => (board === 'club' ? !isTeamD(d) : d === board));  // チームのボードではそのチームのタスクだけを足す
   $('#fDept').innerHTML = opts.map((d) => '<option value="' + esc(d) + '"' + (d === dept ? ' selected' : '') + '>' + esc(deptLabel(d)) + '</option>').join('');
   $('#fDeptLabel').textContent = '部局';
   $('#fOwner').disabled = false;
@@ -1062,7 +1102,7 @@ function openAdd(due, parent) {
   $('#fOwner').value = parent ? '' : scope === 'me' ? D.me.name : '';
   $('#fMemo').value = '';
   $('#fMemoLabel').textContent = 'メモ（任意）';
-  $('#rowDept').hidden = false;
+  $('#rowDept').hidden = board !== 'club';  // チームのボードでは選ぶものがないので出さない
   $('#rowMemo').hidden = false;
   $('#rowStatus').hidden = true;
   $('#fInfo').hidden = true;
@@ -1224,6 +1264,7 @@ document.addEventListener('change', (e) => {
   });
 });
 
+$('#boards').addEventListener('click', (e) => { const b = e.target.closest('[data-board]'); if (b) setBoard(b.dataset.board); });
 $('#fScope').onchange = (e) => { scope = e.target.value; store.set('scope', scope); loadSel = null; render(); };
 $('#fRange').onchange = (e) => { range = e.target.value; store.set('range', range); render(); };
 $('#reload').onclick = () => load().then(() => toast('最新にしました'));
@@ -1321,7 +1362,7 @@ const demo = (() => {
     ['青山', '主将局', false], ['石田', '主将局', false], ['上野', '主将局', false], ['江口', '主将局', false],
     ['小野', '合宿', true], ['北村', '合宿', false], ['久保', '外務', true], ['坂井', '外務', false],
     ['島田', '経理', true], ['田村', '医務', true], ['中西', '内務', true], ['野口', 'OBOG', true], ['福田', '企画', true],
-  ].map(([name, dept, head]) => ({ name, dept, head }));
+  ].map(([name, dept, head]) => ({ name, dept, head, teams: ['青山', '石田', '北村', '坂井'].includes(name) ? ['新歓首脳'] : [] }));
   let n = 100;
   const mk = (dept, task, due, owner, extra) => Object.assign({
     id: 'T0' + (n++), dept, task, due: due == null ? '' : dd(due), owner, status: '未着手', parent: '', kind: '毎年', to: '', memo: '', draft: false,
@@ -1362,6 +1403,13 @@ const demo = (() => {
     mk('広報', '大会結果をインスタに載せる', -3, '', { status: '済' }),
     mk('常務', '城西大会の役員の割り振り', null, ''),
     mk('主将局', '部の共有アカウントのパスワード保管者を決める', null, '青山'),
+    // 新歓首脳のボード（青山・石田・北村・坂井にだけ見える）
+    mk('新歓首脳', '【女子オリ】オリター・構内新歓の要員を決めて申し込む', 2, '北村', { status: '進行中' }),
+    mk('新歓首脳', '【全体】新歓の目的・コンセプトを決める（首脳mtg）', 5, '石田'),
+    mk('新歓首脳', '【SNS・ビラ】Adobe・Canvaの契約（ブラックフライデー）', 10, '坂井', { memo: '去年は2月までで足りた' }),
+    mk('新歓首脳', '【登録】第1回サークル代表者会議に出る', 34, '', { to: 'オリエンテーション委員会' }),
+    mk('新歓首脳', '【テント列】少林寺拳法部さんと合同テントの相談', 40, '青山'),
+    mk('新歓首脳', '【全体】オリ合宿の補助費の方針を決めて学壱に周知', -1, '石田'),
     // 個人のタスク（石田さんにだけ見える）
     mk('個人', '道着をクリーニングに出す', 1, '石田', { kind: '今年だけ', source: 'タスク画面（石田）' }),
     mk('個人', '全日本の個人エントリーを考える', 10, '石田', { kind: '今年だけ', source: 'タスク画面（石田）', id: 'T0P3' }),
@@ -1383,9 +1431,9 @@ const demo = (() => {
     { name: '二段審査', kind: '審査', start: dd(37), end: dd(37), next: false },
     { name: '春合宿', kind: '合宿', start: dd(106), end: dd(109), next: true },
   ];
-  const me = { name: '石田', dept: '主将局', core: true, boss: false };
+  const me = { name: '石田', dept: '主将局', core: true, boss: false, teams: ['新歓首脳'] };
   return {
-    appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務', '個人'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48) }; },
+    appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務', '個人', '新歓首脳'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48) }; },
     saveTask(id, change) {
       const t = tasks.concat(draft).find((x) => x.id === id);
       let note = '';
