@@ -243,6 +243,8 @@ table.heat { border-collapse: collapse; width: 100%; min-width: 640px; font-vari
 .meethead h2 { margin: 0; font-size: 20px; }
 .meethead .sp { flex: 1; }
 .meethead .mm { margin-left: 0; }
+.meethead label.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; }
+.meethead select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: inherit; font: inherit; }
 .mnote { font-size: 13px; color: var(--muted); margin: 4px 0 16px; }
 body.big .meet .ptitle { font-size: 19px; }
 .sum { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
@@ -419,6 +421,12 @@ fieldset { border: 0; padding: 0; margin: 0; }
         <button type="button" data-mm="par" aria-pressed="true">親タスクごと</button>
         <button type="button" data-mm="due" aria-pressed="false">期限ごと</button>
       </div>
+      <label class="chk">先の範囲
+        <select id="mSpan" aria-label="会議に出す先の範囲">
+          <option value="28">4週間</option><option value="92">3か月</option><option value="183">半年</option><option value="0">すべて</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="mDone"> 済んだものも</label>
       <span class="sp"></span>
       <label class="chk"><input type="checkbox" id="fBig"> 文字を大きく</label>
       <button class="iconbtn" id="full" type="button">全画面</button>
@@ -548,6 +556,13 @@ let loadSel = null;
 // 会議の並べ方：par＝親タスクごと（親の進み具合と子をまとめて見る）／due＝期限ごと（遅れ・今週・来週…）
 let meetMode = store.get('meetMode', 'par');
 if (!['par', 'due'].includes(meetMode)) meetMode = 'par';
+// 会議に出す範囲：meetSpan＝何日先まで（0＝すべて。期限のないタスクも出る）／meetDone＝済んだものも出す（同じ長さだけ前まで）
+const SPANS = { 28: '4週間', 92: '3か月', 183: '半年', 0: 'すべて' };
+let meetSpan = Number(store.get('meetSpan', 28));
+if (!(meetSpan in SPANS)) meetSpan = 28;
+let meetDone = store.get('meetDone', false) === true;
+const inSpan = (d) => !meetSpan || d <= meetSpan;
+const spanIn = () => (meetSpan ? SPANS[meetSpan] + '以内' : 'すべて');
 let lastLoad = 0;
 
 /* ---------- サーバーとのやりとり ---------- */
@@ -896,18 +911,29 @@ function renderMeet() {
     ['m-late', '遅れているもの', act.filter((t) => t.due && n(t) < 0), 'late'],
     ['m-week', '今週（〜' + mdShort(wEnd) + '）', act.filter((t) => t.due && n(t) >= 0 && pd(t.due) <= wEnd)],
     ['m-next', '来週（' + mdShort(add(s, 7)) + '〜' + mdShort(nwEnd) + '）', act.filter((t) => t.due && pd(t.due) > wEnd && pd(t.due) <= nwEnd)],
-    ['m-ext', '外部への提出物（4週間以内）', act.filter((t) => t.to && t.due && n(t) >= 0 && n(t) <= 28)],
-    ['m-none', '担当が決まっていないもの（4週間以内）', act.filter((t) => !t.owner && t.due && n(t) <= 28)],
+    ['m-ext', '外部への提出物（' + spanIn() + '）', act.filter((t) => t.to && (t.due ? n(t) >= 0 && inSpan(n(t)) : !meetSpan))],
+    ['m-none', '担当が決まっていないもの（' + spanIn() + '）', act.filter((t) => !t.owner && (t.due ? inSpan(n(t)) : !meetSpan))],
   ];
+  // 範囲を広げたときだけ、来週より先の分も出す（「すべて」なら期限のないものも）
+  if (meetSpan !== 28) secs.splice(3, 0, ['m-far', 'その先（' + mdShort(add(s, 14)) + '〜' + (meetSpan ? mdShort(add(today, meetSpan)) : '。期限なしも') + '）',
+    act.filter((t) => (t.due ? pd(t.due) > nwEnd && inSpan(n(t)) : !meetSpan))]);
+  // 済んだもの：期限が過去の範囲に入るもの（先の期限で早く済んだものも）。期限なしは、済にした日で見る
+  const done = !meetDone ? [] : D.tasks.filter((t) => inBoard(t) && t.status === '済' && t.dept !== PERSONAL && (!dept || t.dept === dept) &&
+    (!meetSpan || (t.due ? -n(t) <= meetSpan : t.updated && Date.now() - t.updated < meetSpan * 864e5)))
+    .sort((a, b) => (b.due || '').localeCompare(a.due || '') || cmp(a, b));
+  const doneHtml = !meetDone ? '' : '<div class="lgroup" id="m-done"><h3>済んだもの（' + (meetSpan ? 'この' + SPANS[meetSpan] : 'すべて') + '：' + done.length + '件。新しい順）</h3>' +
+    (done.length ? rowsHtml(done) : '<div class="empty">なし</div>') + '</div>';
+  $('#mSpan').value = String(meetSpan);
+  $('#mDone').checked = meetDone;
   const doneWeek = D.tasks.filter((t) => inBoard(t) && t.status === '済' && t.dept !== PERSONAL && t.updated && Date.now() - t.updated < 7 * 864e5 && (!dept || t.dept === dept)).length;
   $('#meetTitle').textContent = mdShort(today) + '（' + WD[today.getDay()] + '）の確認・' + (dept || (board === 'club' ? '全部局' : board));
   $('#meetSum').innerHTML = secs.map((x) => '<a href="#' + x[0] + '" class="' + (x[3] || '') + '">' + esc(x[1].replace(/（.*$/, '')) + '<b>' + x[2].length + '</b></a>').join('') +
-    '<a href="#m-week">この1週間で済<b>' + doneWeek + '</b></a>';
+    (meetDone ? '<a href="#m-done">済んだもの<b>' + done.length + '</b></a>' : '<a href="#m-week">この1週間で済<b>' + doneWeek + '</b></a>');
   document.querySelectorAll('[data-mm]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mm === meetMode)));
   const note = (scope === 'me' || scope === PERSONAL ? '<p class="lead">会議では、上の「表示する範囲」の「' + (scope === 'me' ? '自分の担当' : '個人') + '」は使わず、' + (board === 'club' ? '全部局（または部局ごと）' : board + 'の全員分') + 'で出しています。個人のタスクは会議には出ません。</p>' : '');
-  if (meetMode === 'par') { $('#meetBody').innerHTML = meetParHtml(act, dept, n, nwEnd) + note; return; }
+  if (meetMode === 'par') { $('#meetBody').innerHTML = meetParHtml(act, dept, n, nwEnd) + doneHtml + note; return; }
   $('#meetBody').innerHTML = secs.map((x) => '<div class="lgroup" id="' + x[0] + '"><h3 class="' + (x[3] === 'late' ? 'is-late' : '') + '">' + esc(x[1]) + '（' + x[2].length + '件）</h3>' +
-    (x[2].length ? rowsHtml(x[2].sort(byDue)) : '<div class="empty">なし</div>') + '</div>').join('') + note;
+    (x[2].length ? rowsHtml(x[2].sort(byDue)) : '<div class="empty">なし</div>') + '</div>').join('') + doneHtml + note;
 }
 
 // 親タスク：子のあるタスクごとに、子の担当・期限・状態と進み具合をまとめて見る
@@ -916,7 +942,7 @@ const parOpen = {};  // 開け閉めを押したものだけ覚える（2分ご�
 // 会議（親タスクごと）：4週間以内に動きがある親を、進み具合と「済でない子」ごと出す。
 // 親のないタスクは、遅れ〜来週の分と、担当が決まっていない分（4週間以内）だけ下に出す
 function meetParHtml(act, dept, n, nwEnd) {
-  const soon = (t) => isActive(t) && t.due && n(t) <= 28;  // 遅れ（マイナス）も入る
+  const soon = (t) => isActive(t) && (t.due ? inSpan(n(t)) : !meetSpan);  // 遅れ（マイナス）も入る。「すべて」なら期限なしも
   const parents = D.tasks.filter((t) => inBoard(t) && t.dept !== PERSONAL && (!dept || t.dept === dept) && kidsOf(t).length);
   const all = sortGroups(parents.map(parGroup).filter((g) => !g.finished && [g.p].concat(g.kids).some(isActive)));
   const hot = all.filter((g) => [g.p].concat(g.kids).some(soon));
@@ -924,16 +950,18 @@ function meetParHtml(act, dept, n, nwEnd) {
   const inG = new Set();
   all.forEach((g) => { inG.add(g.p.id); g.kids.forEach((k) => inG.add(k.id)); });
   const solo = act.filter((t) => !inG.has(t.id));
-  const soloSoon = solo.filter((t) => t.due && pd(t.due) <= nwEnd).sort(byDue);
-  const soloNoOwn = solo.filter((t) => !t.owner && t.due && n(t) <= 28 && pd(t.due) > nwEnd).sort(byDue);
-  let h = '<div class="lgroup" id="m-par"><h3>親タスク（4週間以内に期限がある・遅れている：' + hot.length + '件）</h3>' +
+  // ふだん（4週間）は、親のないタスクは来週までと「担当なし」だけ。範囲を広げたら、その範囲の分を全部出す
+  const wide = meetSpan !== 28;
+  const soloSoon = solo.filter((t) => (wide ? (t.due ? inSpan(n(t)) : true) : t.due && pd(t.due) <= nwEnd)).sort(byDue);
+  const soloNoOwn = wide ? [] : solo.filter((t) => !t.owner && t.due && n(t) <= 28 && pd(t.due) > nwEnd).sort(byDue);
+  let h = '<div class="lgroup" id="m-par"><h3>親タスク（' + (meetSpan ? SPANS[meetSpan] + '以内に期限がある・遅れている' : 'すべて') + '：' + hot.length + '件）</h3>' +
     (hot.length ? hot.map((g) => {
       const list = g.kids.filter(isActive).sort(byDue);
       const fin = g.kids.length - list.length;
       return parGroupHtml(g, list, { empty: '子はすべて済・不要です。親を「済」にしてください', text: fin ? '済・不要の子 ' + fin + '件' : '' });
     }).join('') : '<div class="empty">なし</div>') + '</div>';
-  if (later) h += '<p class="mnote">ほかに、期限が4週間より先の親タスクが ' + later + '件あります（「親タスク」タブで見られます）。</p>';
-  h += '<div class="lgroup" id="m-solo"><h3>親のないタスク（遅れ〜来週：' + soloSoon.length + '件）</h3>' +
+  if (later) h += '<p class="mnote">ほかに、期限が' + SPANS[meetSpan] + 'より先の親タスクが ' + later + '件あります（上の「先の範囲」を広げると出ます）。</p>';
+  h += '<div class="lgroup" id="m-solo"><h3>親のないタスク（' + (wide ? (meetSpan ? '遅れ〜' + SPANS[meetSpan] + '先' : 'すべて') : '遅れ〜来週') + '：' + soloSoon.length + '件）</h3>' +
     (soloSoon.length ? rowsHtml(soloSoon) : '<div class="empty">なし</div>') + '</div>';
   if (soloNoOwn.length) h += '<div class="lgroup"><h3 class="is-late">親のないタスクで担当が決まっていないもの（再来週〜4週間：' + soloNoOwn.length + '件）</h3>' + rowsHtml(soloNoOwn) + '</div>';
   return h;
@@ -1372,6 +1400,8 @@ document.querySelectorAll('[data-shift]').forEach((b) => {
     $('#fDue').value = ks(add(base, Number(b.dataset.shift)));
   };
 });
+$('#mSpan').onchange = (e) => { meetSpan = Number(e.target.value); if (!(meetSpan in SPANS)) meetSpan = 28; store.set('meetSpan', meetSpan); renderMeet(); };
+$('#mDone').onchange = (e) => { meetDone = e.target.checked; store.set('meetDone', meetDone); renderMeet(); };
 $('#fBig').onchange = (e) => { document.body.classList.toggle('big', e.target.checked); store.set('big', e.target.checked); };
 $('#full').onclick = () => {
   const el = document.documentElement;
