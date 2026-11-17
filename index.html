@@ -259,6 +259,26 @@ body.big .meet .lgroup h3 { font-size: 17px; }
 .dot.mine { background: transparent; border: 2px solid var(--accent); width: 9px; height: 9px; }
 .badge.mine { background: var(--accent-soft); color: var(--accent); }
 .dhint { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.place { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); }
+.place .step { display: grid; grid-template-columns: 5.5em 1fr; align-items: center; gap: 8px; }
+.place .step > label { margin: 0; }
+.place .step > div { min-width: 0; }
+#fCatNew { margin-top: 6px; }
+/* フォルダ（部局 → カテゴリ → 親タスク → タスク） */
+.fold { margin-bottom: 14px; }
+.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r); font-weight: 700; font-size: 15px; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: '▶'; font-size: 11px; color: var(--muted); }
+.fold[open] > summary::before { content: '▼'; }
+.fold > summary:hover { background: var(--surface); }
+.fold > summary .fc { margin-left: auto; font-weight: 500; font-size: 12.5px; color: var(--muted); }
+.fold > summary .fc .late { color: var(--late); }
+.fbox { padding-left: 14px; border-left: 2px solid var(--line); margin-left: 14px; }
+.fold.cat { margin-bottom: 10px; }
+.fold.cat > summary { font-size: 14px; font-weight: 600; }
+.fold.cat > summary .fic { color: var(--accent); }
+.fsolo { margin: 4px 0 12px; }
+.fsolo > p { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; }
 
 /* 親タスク（親ごとに子をまとめて見る） */
 .pgroup { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 12px; overflow: hidden; }
@@ -365,7 +385,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
       <button role="tab" id="tab-cal" data-view="cal" aria-selected="true">カレンダー</button>
       <button role="tab" id="tab-load" data-view="load" aria-selected="false">混み具合</button>
       <button role="tab" id="tab-meet" data-view="meet" aria-selected="false">会議</button>
-      <button role="tab" id="tab-par" data-view="par" aria-selected="false">親タスク</button>
+      <button role="tab" id="tab-par" data-view="par" aria-selected="false">フォルダ</button>
     </nav>
     <div class="filters">
       <label for="fScope" class="sr">表示する範囲</label>
@@ -448,6 +468,13 @@ fieldset { border: 0; padding: 0; margin: 0; }
     <header><h2 id="dlgTitle" tabindex="-1">タスク</h2><button type="button" class="x" id="fClose" aria-label="閉じる">×</button></header>
     <div class="fbody">
       <div><label for="fTask">やること</label><input type="text" id="fTask" maxlength="100" autocomplete="off" placeholder="例：春合宿の計画書を監督に確認してもらう"></div>
+      <div class="place" id="rowPlace">
+        <div class="step" id="rowDept"><label for="fDept" id="fDeptLabel">部局</label><div><select id="fDept"></select><p class="dhint" id="fDeptHint" hidden></p></div></div>
+        <div class="step" id="rowUnit" hidden><label for="fUnit">部局</label><div><select id="fUnit"></select></div></div>
+        <div class="step" id="rowCat"><label for="fCat">カテゴリ</label><div><select id="fCat"></select>
+          <input type="text" id="fCatNew" maxlength="30" autocomplete="off" placeholder="新しいカテゴリの名前（例：ビラ配り）" hidden><p class="dhint" id="fCatHint" hidden></p></div></div>
+        <div class="step" id="rowPar"><label for="fPar">親タスク</label><div><select id="fPar"></select></div></div>
+      </div>
       <div class="two">
         <div>
           <label for="fDue">期限</label><input type="date" id="fDue">
@@ -459,7 +486,6 @@ fieldset { border: 0; padding: 0; margin: 0; }
         <label class="yr" for="fYearly"><input type="checkbox" id="fYearly"> 来年もやる（毎年）</label>
         <p class="hint">チェックすると、来年も同じ日付で台帳に入ります。毎年のことなのに台帳になかったものは、ここにチェック</p>
       </div>
-      <div id="rowDept"><label for="fDept" id="fDeptLabel">部局</label><select id="fDept"></select><p class="dhint" id="fDeptHint" hidden></p></div>
       <fieldset id="rowStatus"><legend>状態</legend><div class="seg" id="fStatus"></div></fieldset>
       <div id="rowMemo"><label for="fMemo" id="fMemoLabel">メモ（任意）</label><textarea id="fMemo" rows="3" maxlength="500"></textarea></div>
       <div id="rowKids" hidden>
@@ -552,6 +578,20 @@ const boardMembers = () => (board === 'club' ? D.members : D.members.filter((m) 
 const boardName = () => (board === 'club' ? '部活タスク' : board);
 const pool = () => (which === 'draft' ? D.draft : D.tasks).filter(inBoard);
 const allTasks = () => D.tasks.concat(D.draft);
+// 部局：部活タスクではB列の部局、チームのボードではチームの中の部局（新歓首脳なら「SNS」などの役職）
+const NOUNIT = '部局なし';
+const NOCAT = 'カテゴリなし';
+const unitOf = (t) => (isTeamD(t.dept) ? t.unit || '' : t.dept);
+const unitsFor = (b) => (b === 'club' ? D.depts.filter((d) => !isTeamD(d)) : (D.teamUnits && D.teamUnits[b]) || []);
+const unitName = (u) => (u ? deptLabel(u) : NOUNIT);
+// 場所の表示（部局 › カテゴリ）。チームのボードで部局が空なら、カテゴリだけ
+const placeText = (t) => [isTeamD(t.dept) ? t.unit : t.dept, t.cat].filter(Boolean).join(' › ');
+// そのボード・部局で使われているカテゴリ（名前の順）
+function catsOf(dept, unit) {
+  const set = new Set();
+  allTasks().forEach((t) => { if (t.cat && t.dept === dept && (!isTeamD(dept) || (t.unit || '') === unit)) set.add(t.cat); });
+  return [...set].sort((a, b) => a.localeCompare(b, 'ja'));
+}
 let loadSel = null;
 // 会議の並べ方：par＝親タスクごと（親の進み具合と子をまとめて見る）／due＝期限ごと（遅れ・今週・来週…）
 let meetMode = store.get('meetMode', 'par');
@@ -631,9 +671,10 @@ const dotHtml = (d) => (d === PERSONAL ? '<i class="dot mine" aria-hidden="true"
 function deptIndex(d) { const i = ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務'].indexOf(d); return i < 0 ? 9 : i; }
 function fillScope() {
   // チームのボードでは部局の選択はない（自分の担当／全部だけ）
-  const opts = [['me', '自分の担当'], ['all', '全部']].concat(board === 'club' ? D.depts.filter((d) => !isTeamD(d)).map((d) => [d, deptLabel(d) + 'のタスク']) : []);
+  const opts = [['me', '自分の担当'], ['all', '全部']].concat(unitsFor(board).map((d) => [d, deptLabel(d) + 'のタスク']));
   if (!scope) scope = D.tasks.some((t) => t.owner === D.me.name && ACTIVE.includes(t.status)) ? 'me' : 'all';
   if (!opts.some((o) => o[0] === scope)) scope = board === 'club' ? 'me' : 'all';
+  $('#fScope').setAttribute('aria-label', '表示する範囲（自分の担当・全部・部局）');
   $('#fScope').innerHTML = opts.map((o) => '<option value="' + esc(o[0]) + '"' + (o[0] === scope ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('');
   $('#fRange').value = range;
 }
@@ -658,8 +699,8 @@ function setBoard(b) {
   if (b === board) return;
   board = b;
   store.set('board', b);
-  // 部局で絞っていたら、チームのボードでは「全部」に（チームには部局の選択がない）
-  if (b !== 'club' && scope !== 'me') scope = 'all';
+  // 部局で絞っていたら、ボードを替えたら「全部」に（ボードごとに部局がちがう）
+  if (scope !== 'me') scope = 'all';
   loadSel = null;
   fillBoards();
   fillScope();
@@ -680,7 +721,7 @@ function shown(t) {
   if (!rangeOk(t)) return false;
   if (scope === 'me') return t.owner === D.me.name;
   if (scope === 'all') return true;
-  return t.dept === scope;
+  return unitOf(t) === scope;
 }
 // 同じ日の中：↑↓で決めた並び順が先。決めていないものは、提出物→遅れ→部局→名前の順
 function cmp(a, b) {
@@ -718,7 +759,7 @@ function rel(t) {
 }
 function chipHtml(t) {
   const p = parentOf(t);
-  const tip = (p ? '親：' + p.task + '｜' : '') + t.task + '｜' + (t.dept === PERSONAL ? '個人（自分だけに見える）' : t.dept) + '・' + (t.owner || '担当なし') + (t.to ? '・提出先 ' + t.to : '');
+  const tip = (p ? '親：' + p.task + '｜' : '') + t.task + '｜' + (t.dept === PERSONAL ? '個人（自分だけに見える）' : placeText(t) || t.dept) + '・' + (t.owner || '担当なし') + (t.to ? '・提出先 ' + t.to : '');
   const name = p ? '<span class="cw"><small class="pn">▸ ' + esc(p.task) + '</small><span>' + esc(t.task) + '</span></span>' : '<span>' + esc(t.task) + '</span>';
   return '<button type="button" class="chip ' + stateCls(t) + (kidsOf(t).length ? ' par' : '') + '" data-id="' + esc(t.id) + '"' +
     (mode !== 'list' && isActive(t) ? ' draggable="true"' : '') + ' title="' + esc(tip) + '">' +
@@ -738,7 +779,7 @@ function rowHtml(t, ord, inPar) {
     '<span class="rt">' + dotHtml(t.dept) + '<span>' + esc(t.task) + '</span>' + (t.dept === PERSONAL ? '<span class="badge mine">自分だけ</span>' : '') +
     (t.to ? '<span class="badge ext">提出物</span>' : '') + (t.status === '要確認' ? '<span class="badge check">要確認</span>' : '') +
     (t.status === '進行中' ? '<span class="badge" style="background:var(--accent-soft);color:var(--accent)">進行中</span>' : '') + kidsBadge(ks) + '</span>' +
-    '<span class="rm">' + (p ? '<span class="pn">▸ 親：' + esc(p.task) + '</span>' : '') + '<span>' + esc(t.dept) + '</span><span class="own">' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
+    '<span class="rm">' + (p ? '<span class="pn">▸ 親：' + esc(p.task) + '</span>' : '') + '<span>' + esc(placeText(t) || t.dept) + '</span><span class="own">' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
     (t.to ? '<span>提出先：' + esc(t.to) + '</span>' : '') + '</span></button>' +
     (ord ? '<span class="ord"><button type="button" data-move="-1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を上へ"' + (ord.first ? ' disabled' : '') + '>↑</button>' +
       '<button type="button" data-move="1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を下へ"' + (ord.last ? ' disabled' : '') + '>↓</button></span>' : '') + '</div>';
@@ -857,7 +898,7 @@ function renderLoad() {
   const s = !live && D.switchDate ? monday(pd(D.switchDate)) : monday(today);
   const weeks = Array.from({ length: W }, (_, i) => add(s, i * 7));
   const dept = scopeDept();
-  const tasks = pool().filter((t) => isActive(t) && (!dept || t.dept === dept));
+  const tasks = pool().filter((t) => isActive(t) && (!dept || unitOf(t) === dept));
   const rows = {};
   const ensure = (n) => (rows[n] = rows[n] || { name: n, late: [], w: weeks.map(() => []), dept: '' });
   boardMembers().forEach((m) => { if (!dept || m.dept === dept) ensure(m.name).dept = m.dept; });
@@ -903,7 +944,7 @@ function renderLoad() {
 function renderMeet() {
   const dept = scopeDept() === PERSONAL ? null : scopeDept();  // 会議に個人は出さないので、範囲が「個人」なら全部局で
   // 会議は画面に映すので、個人のタスクは出さない
-  const act = D.tasks.filter((t) => inBoard(t) && isActive(t) && t.dept !== PERSONAL && (!dept || t.dept === dept));
+  const act = D.tasks.filter((t) => inBoard(t) && isActive(t) && t.dept !== PERSONAL && (!dept || unitOf(t) === dept));
   const s = monday(today);
   const wEnd = add(s, 6), nwEnd = add(s, 13);
   const n = (t) => diff(today, pd(t.due));
@@ -918,14 +959,14 @@ function renderMeet() {
   if (meetSpan !== 28) secs.splice(3, 0, ['m-far', 'その先（' + mdShort(add(s, 14)) + '〜' + (meetSpan ? mdShort(add(today, meetSpan)) : '。期限なしも') + '）',
     act.filter((t) => (t.due ? pd(t.due) > nwEnd && inSpan(n(t)) : !meetSpan))]);
   // 済んだもの：期限が過去の範囲に入るもの（先の期限で早く済んだものも）。期限なしは、済にした日で見る
-  const done = !meetDone ? [] : D.tasks.filter((t) => inBoard(t) && t.status === '済' && t.dept !== PERSONAL && (!dept || t.dept === dept) &&
+  const done = !meetDone ? [] : D.tasks.filter((t) => inBoard(t) && t.status === '済' && t.dept !== PERSONAL && (!dept || unitOf(t) === dept) &&
     (!meetSpan || (t.due ? -n(t) <= meetSpan : t.updated && Date.now() - t.updated < meetSpan * 864e5)))
     .sort((a, b) => (b.due || '').localeCompare(a.due || '') || cmp(a, b));
   const doneHtml = !meetDone ? '' : '<div class="lgroup" id="m-done"><h3>済んだもの（' + (meetSpan ? 'この' + SPANS[meetSpan] : 'すべて') + '：' + done.length + '件。新しい順）</h3>' +
     (done.length ? rowsHtml(done) : '<div class="empty">なし</div>') + '</div>';
   $('#mSpan').value = String(meetSpan);
   $('#mDone').checked = meetDone;
-  const doneWeek = D.tasks.filter((t) => inBoard(t) && t.status === '済' && t.dept !== PERSONAL && t.updated && Date.now() - t.updated < 7 * 864e5 && (!dept || t.dept === dept)).length;
+  const doneWeek = D.tasks.filter((t) => inBoard(t) && t.status === '済' && t.dept !== PERSONAL && t.updated && Date.now() - t.updated < 7 * 864e5 && (!dept || unitOf(t) === dept)).length;
   $('#meetTitle').textContent = mdShort(today) + '（' + WD[today.getDay()] + '）の確認・' + (dept || (board === 'club' ? '全部局' : board));
   $('#meetSum').innerHTML = secs.map((x) => '<a href="#' + x[0] + '" class="' + (x[3] || '') + '">' + esc(x[1].replace(/（.*$/, '')) + '<b>' + x[2].length + '</b></a>').join('') +
     (meetDone ? '<a href="#m-done">済んだもの<b>' + done.length + '</b></a>' : '<a href="#m-week">この1週間で済<b>' + doneWeek + '</b></a>');
@@ -943,7 +984,7 @@ const parOpen = {};  // 開け閉めを押したものだけ覚える（2分ご�
 // 親のないタスクは、遅れ〜来週の分と、担当が決まっていない分（4週間以内）だけ下に出す
 function meetParHtml(act, dept, n, nwEnd) {
   const soon = (t) => isActive(t) && (t.due ? inSpan(n(t)) : !meetSpan);  // 遅れ（マイナス）も入る。「すべて」なら期限なしも
-  const parents = D.tasks.filter((t) => inBoard(t) && t.dept !== PERSONAL && (!dept || t.dept === dept) && kidsOf(t).length);
+  const parents = D.tasks.filter((t) => inBoard(t) && t.dept !== PERSONAL && (!dept || unitOf(t) === dept) && kidsOf(t).length);
   const all = sortGroups(parents.map(parGroup).filter((g) => !g.finished && [g.p].concat(g.kids).some(isActive)));
   const hot = all.filter((g) => [g.p].concat(g.kids).some(soon));
   const later = all.length - hot.length;
@@ -991,7 +1032,7 @@ function parGroupHtml(g, list, note) {
     '<span class="ptitle">' + dotHtml(p.dept) + '<span>' + esc(p.task) + '</span>' + (p.dept === PERSONAL ? '<span class="badge mine">自分だけ</span>' : '') +
     (p.to ? '<span class="badge ext">提出物</span>' : '') + (['済', '不要'].includes(p.status) ? '<span class="badge kids">' + esc(p.status) + '</span>' : '') + '</span>' +
     '<span class="pmeta"><span><span class="pbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></span>' +
-    '<span>子 ' + g.done + '/' + g.valid.length + ' 済</span><span>' + rel(p) + '</span><span>' + esc(p.dept) + '・' + esc(p.owner || '担当なし') + '</span>' +
+    '<span>子 ' + g.done + '/' + g.valid.length + ' 済</span><span>' + rel(p) + '</span><span>' + esc(placeText(p) || p.dept) + '・' + esc(p.owner || '担当なし') + '</span>' +
     (g.late.length ? '<span class="late">遅れ ' + g.late.length + '</span>' : '') + (g.noOwn.length ? '<span class="late">担当なし ' + g.noOwn.length + '</span>' : '') + '</span></button>' +
     '<button type="button" class="padd" data-addkid="' + esc(p.id) + '" aria-label="' + esc(p.task) + ' に子タスクを足す">＋ 子</button></div>' +
     '<div class="pbody" id="' + bid + '"' + (open ? '' : ' hidden') + '>' +
@@ -999,21 +1040,52 @@ function parGroupHtml(g, list, note) {
     (note.text ? '<p class="phide">' + esc(note.text) + '</p>' : '') + '</div></div>';
 }
 
+// フォルダ：部局 → カテゴリ → 親タスク（子つき）／親のないタスク。上の「表示する範囲」「出すタスク」に合わせる
+const foldOpen = {};  // 開け閉めしたものだけ覚える（最新にしても戻らないように）
 function renderPar() {
-  const parents = pool().filter((t) => kidsOf(t).length);
-  const groups = sortGroups(parents.map(parGroup).filter((g) => [g.p].concat(g.kids).some(shown)));
-  $('#parLead').textContent = '子タスクに分けたタスク（親）ごとに、子の担当・期限・進み具合をまとめて出します。上の「表示する範囲」「出すタスク」に合わせています。親の名前を押すと親を直せます。' +
-    (groups.length ? '（' + groups.length + '件）' : '');
-  if (!groups.length) {
-    $('#parBody').innerHTML = '<div class="empty">' + (parents.length ? 'この範囲には親タスクがありません。上の選択を「全部」や「過去も含めて全部」にすると出ます。'
-      : '親タスクはまだありません。タスクを開いて「＋ 子タスクに分ける」を押すと、ここに出ます。') + '</div>';
-    return;
-  }
-  $('#parBody').innerHTML = groups.map((g) => {
-    const list = g.kids.filter(rangeOk).sort(byDue);
-    const hid = g.kids.length - list.length;
-    return parGroupHtml(g, list, { empty: '今の「出すタスク」で出る子はありません', text: hid ? 'ほかに済・不要の子 ' + hid + '件（上の「出すタスク」で出せます）' : '' });
+  const all = pool();
+  const units = unitsFor(board).slice();
+  all.forEach((t) => { const u = unitOf(t); if (!units.includes(u)) units.push(u); });  // 一覧にない部局・部局なしは最後に
+  let total = 0;
+  const html = units.map((u) => {
+    const inU = all.filter((t) => unitOf(t) === u);
+    if (!inU.length) return '';
+    const cats = [...new Set(inU.map((t) => t.cat || ''))].sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b, 'ja'));
+    let uAct = 0, uLate = 0;
+    const body = cats.map((c) => {
+      const inC = inU.filter((t) => (t.cat || '') === c);
+      const groups = sortGroups(inC.filter((t) => !t.parent && kidsOf(t).length).map(parGroup).filter((g) => [g.p].concat(g.kids).some(shown)));
+      const inG = new Set();
+      inC.filter((t) => !t.parent && kidsOf(t).length).forEach((p) => { inG.add(p.id); kidsOf(p).forEach((k) => inG.add(k.id)); });
+      const solo = inC.filter((t) => !inG.has(t.id) && shown(t)).sort(byDue);
+      if (!groups.length && !solo.length) return '';
+      const vis = new Set(solo.map((t) => t.id));
+      groups.forEach((g) => { vis.add(g.p.id); g.kids.forEach((k) => vis.add(k.id)); });
+      const list = inC.filter((t) => vis.has(t.id));
+      const act = list.filter(isActive).length, late = list.filter(isLate).length;
+      uAct += act; uLate += late; total += vis.size;
+      const key = 'c:' + board + '/' + u + '/' + c;
+      const open = key in foldOpen ? foldOpen[key] : !!scopeDept() || cats.length === 1;
+      return '<details class="fold cat" data-fold="' + esc(key) + '"' + (open ? ' open' : '') + '><summary><span class="fic" aria-hidden="true">📁</span><span>' + esc(c || NOCAT) + '</span>' +
+        '<span class="fc">' + (groups.length ? '親 ' + groups.length + '・' : '') + 'まだ ' + act + '件' + (late ? '・<span class="late">遅れ ' + late + '</span>' : '') + '</span></summary>' +
+        '<div class="fbox">' +
+        groups.map((g) => {
+          const ks2 = g.kids.filter(rangeOk).sort(byDue);
+          const hid = g.kids.length - ks2.length;
+          return parGroupHtml(g, ks2, { empty: '今の「出すタスク」で出る子はありません', text: hid ? 'ほかに済・不要の子 ' + hid + '件（上の「出すタスク」で出せます）' : '' });
+        }).join('') +
+        (solo.length ? '<div class="fsolo">' + (groups.length ? '<p>親のないタスク</p>' : '') + rowsHtml(solo) + '</div>' : '') +
+        (which === 'live' || u !== PERSONAL ? '<button type="button" class="padd" data-addcat="' + esc(JSON.stringify([u, c])) + '" aria-label="' + esc(unitName(u) + ' › ' + (c || NOCAT)) + ' にタスクを足す">＋ ここに足す</button>' : '') +
+        '</div></details>';
+    }).join('');
+    if (!body) return '';
+    const key = 'u:' + board + '/' + u;
+    const open = key in foldOpen ? foldOpen[key] : true;
+    return '<details class="fold" data-fold="' + esc(key) + '"' + (open ? ' open' : '') + '><summary>' + (board === 'club' ? dotHtml(u) : '') + '<span>' + esc(unitName(u)) + '</span>' +
+      '<span class="fc">まだ ' + uAct + '件' + (uLate ? '・<span class="late">遅れ ' + uLate + '</span>' : '') + '</span></summary><div class="fbox">' + body + '</div></details>';
   }).join('');
+  $('#parLead').textContent = '部局 → カテゴリ（フォルダ）→ 親タスク → タスクの順にまとめています。上の「表示する範囲」「出すタスク」に合わせています。カテゴリは、タスクを足すときに作れます。';
+  $('#parBody').innerHTML = html || '<div class="empty">この範囲のタスクはありません。上の選択を「全部」や「過去も含めて全部」にすると出ます。</div>';
 }
 
 /* ---------- 直す・足す ---------- */
@@ -1052,12 +1124,16 @@ async function change(id, patch, msg, canUndo = true) {
   }
 }
 
-function ownerOptions(current, emptyLabel) {
+// unit：選んだ部局。その部局の人をいちばん上に出す（チームのボードでは『メンバー』J列「チームでの部局」）
+function ownerOptions(current, emptyLabel, unit) {
   const groups = {};
   if (board !== 'club' && emptyLabel === '局長におまかせ') emptyLabel = '（担当なし）';  // チームには局長がいない
-  boardMembers().forEach((m) => { (groups[m.dept || 'その他'] = groups[m.dept || 'その他'] || []).push(m); });
+  const inUnit = (m) => !!unit && (board === 'club' ? m.dept === unit : (m.units || []).includes(unit));
+  const top = boardMembers().filter(inUnit);
+  boardMembers().filter((m) => !inUnit(m)).forEach((m) => { (groups[m.dept || 'その他'] = groups[m.dept || 'その他'] || []).push(m); });
   let h = '<option value="">' + esc(emptyLabel) + '</option>';
   if (current && !boardMembers().some((m) => m.name === current)) h += '<option value="' + esc(current) + '">' + esc(current) + '（メンバー表にない）</option>';
+  if (top.length) h += '<optgroup label="' + esc(unit + 'の人') + '">' + top.map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.head ? '（局長）' : '') + '</option>').join('') + '</optgroup>';
   Object.keys(groups).sort((a, b) => deptIndex(a) - deptIndex(b)).forEach((g) => {
     h += '<optgroup label="' + esc(g) + '">' + groups[g].map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.head ? '（局長）' : '') + '</option>').join('') + '</optgroup>';
   });
@@ -1065,6 +1141,57 @@ function ownerOptions(current, emptyLabel) {
 }
 
 const isYearly = (k) => k === '毎年' || k === '2年ごと';
+
+/* 足す・直す窓の「部局 → カテゴリ → 親タスク」。選ぶと、次の選択肢がその中だけになる */
+const NEWCAT = '__new';
+const curDept = () => (editing ? (editing.dept === PERSONAL && !$('#rowDept').hidden ? $('#fDept').value : editing.dept) : board === 'club' ? $('#fDept').value : board);
+const curUnit = () => (isTeamD(curDept()) ? $('#fUnit').value : curDept());
+const curCat = () => ($('#fCat').value === NEWCAT ? $('#fCatNew').value.trim().slice(0, 30) : $('#fCat').value);
+function fillUnits(sel) {
+  const us = unitsFor(isTeamD(curDept()) ? curDept() : board).slice();
+  if (sel && !us.includes(sel)) us.push(sel);
+  $('#fUnit').innerHTML = '<option value="">（' + NOUNIT + '）</option>' + us.map((u) => '<option value="' + esc(u) + '">' + esc(u) + '</option>').join('');
+  $('#fUnit').value = sel || '';
+}
+function fillCats(sel) {
+  const cats = catsOf(curDept(), isTeamD(curDept()) ? $('#fUnit').value : '');
+  if (sel && !cats.includes(sel)) cats.push(sel);
+  $('#fCat').innerHTML = '<option value="">（' + NOCAT + '）</option>' + cats.map((c) => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('') +
+    '<option value="' + NEWCAT + '">＋ 新しいカテゴリを作る</option>';
+  $('#fCat').value = sel || '';
+  $('#fCatNew').value = '';
+  $('#fCatNew').hidden = true;
+}
+// 親にできるのは、同じ部局・カテゴリにある、親のない・済んでいないタスク（子の子は作らない）
+function parentChoices() {
+  const dept = curDept(), unit = $('#fUnit').value, cat = curCat();
+  if ($('#fCat').value === NEWCAT) return [];
+  return (which === 'draft' ? D.draft : D.tasks).filter((t) => !t.parent && t.dept === dept && (!isTeamD(dept) || (t.unit || '') === unit) &&
+    (t.cat || '') === cat && !['済', '不要'].includes(t.status)).sort(byDue);
+}
+function fillParents(sel) {
+  const list = parentChoices();
+  if (sel && !list.some((t) => t.id === sel.id)) list.unshift(sel);
+  $('#fPar').innerHTML = '<option value="">（親なし）</option>' + list.map((t) => '<option value="' + esc(t.id) + '">' + esc(t.task.slice(0, 40)) +
+    (t.due ? '（' + md(t.due) + '）' : '') + (kidsOf(t).length ? '・子' + kidsOf(t).length : '') + '</option>').join('');
+  $('#fPar').value = sel ? sel.id : '';
+}
+function fillOwners() {
+  if ($('#fOwner').disabled) return;  // 個人のタスク（担当は自分）
+  const v = $('#fOwner').value;
+  $('#fOwner').innerHTML = ownerOptions(editing ? editing.owner : '', editing ? '（担当なし）' : '局長におまかせ', curUnit());
+  $('#fOwner').value = v;
+  if ($('#fOwner').value !== v) $('#fOwner').value = '';
+}
+function onPlaceChange(what) {
+  if (what === 'dept' || what === 'unit') fillCats(editing ? curCat() : '');
+  if (what === 'cat') {
+    $('#fCatNew').hidden = $('#fCat').value !== NEWCAT;
+    if (!$('#fCatNew').hidden) $('#fCatNew').focus();
+  }
+  if (!editing) fillParents(null);
+  if (what === 'dept' || what === 'unit') fillOwners();
+}
 
 function openEdit(id) {
   const t = allTasks().find((x) => x.id === id);
@@ -1074,11 +1201,24 @@ function openEdit(id) {
   $('#fYearly').checked = isYearly(t.kind);
   $('#fTask').value = t.task;
   $('#fDue').value = t.due;
-  $('#fOwner').innerHTML = ownerOptions(t.owner, '（担当なし）');
+  const team = isTeamD(t.dept);
+  $('#fOwner').innerHTML = ownerOptions(t.owner, '（担当なし）', unitOf(t));
   $('#fOwner').value = t.owner;
-  $('#rowDept').hidden = true;
+  // 部局：部のタスクは見せるだけ（変えない）。チームのタスクは「チームの中の部局」を選び直せる
+  $('#fDept').innerHTML = '<option value="' + esc(t.dept) + '">' + esc(deptLabel(t.dept)) + '</option>';
+  $('#fDept').disabled = true;
+  $('#rowDept').hidden = team;
   $('#fDeptLabel').textContent = '部局';
   $('#fDeptHint').hidden = true;
+  $('#rowUnit').hidden = !team;
+  fillUnits(t.unit);
+  $('#fUnit').disabled = !!t.parent;
+  fillCats(t.cat);
+  $('#fCat').disabled = !!t.parent;
+  const kn = kidsOf(t).length;
+  $('#fCatHint').textContent = t.parent ? '子タスクは親と同じ' + (team ? '部局・' : '') + 'カテゴリに入ります（親を直すと変わります）' : kn ? '変えると、子タスク ' + kn + '件もいっしょに移ります' : '';
+  $('#fCatHint').hidden = !$('#fCatHint').textContent;
+  $('#rowPar').hidden = true;
   // 個人のタスク：担当は自分のまま・来年には写さない。部局を選んで保存すると部のタスク（みんなに見える）になる。子だけは変えられない
   const mine = t.dept === PERSONAL;
   $('#fOwner').disabled = mine;
@@ -1088,6 +1228,7 @@ function openEdit(id) {
     $('#fDept').innerHTML = '<option value="' + PERSONAL + '">自分だけ（個人）</option>' +
       D.depts.filter((d) => d !== PERSONAL).map((d) => '<option value="' + esc(d) + '">' + (isTeamD(d) ? esc(d) + 'のみんなに見せる' : 'みんなに見せる：' + esc(d) + 'のタスクにする') + '</option>').join('');
     $('#fDept').value = PERSONAL;
+    $('#fDept').disabled = false;
     $('#fDeptHint').textContent = '部局を選んで保存すると、その部局のタスクとしてみんなに見えるようになります（子タスクもいっしょに。個人には戻せません）';
     $('#fDeptHint').hidden = false;
     $('#rowDept').hidden = false;
@@ -1101,7 +1242,7 @@ function openEdit(id) {
   $('#fStatus').innerHTML = st.map((s, i) => '<label><input type="radio" name="st" id="st' + i + '" value="' + esc(s) + '"' + (s === t.status ? ' checked' : '') + '>' + esc(s) + '</label>').join('');
   // 主務カレンダーから入れた行は「旬」しか分からないので、期限は10日・20日・月末の仮の日付
   const rough = /^主務カレンダー/.test(t.source || '') && !t.updated && t.due ? '古い主務カレンダーの「旬」から仮に入れた日付です。分かれば正しい日付に直してください' : '';
-  const info = [['期限について', rough], ['部局', t.dept], ['提出先', t.to], ['足した人', addedBy(t.source)], ['親タスク', parentOf(t) ? parentOf(t).task : t.parent],
+  const info = [['期限について', rough], ['提出先', t.to], ['足した人', addedBy(t.source)], ['親タスク', parentOf(t) ? parentOf(t).task : t.parent],
     ['最後に直した', t.updated ? new Date(t.updated).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''], ['番号', t.id]];
   $('#fInfo').innerHTML = info.filter((x) => x[1]).map((x) => '<dt>' + x[0] + '</dt><dd>' + esc(x[1]) + '</dd>').join('');
   $('#fInfo').hidden = false;
@@ -1162,15 +1303,18 @@ async function doDelete() {
   }
 }
 
-let addParent = null;  // 子タスクを足しているときの親
-function openAdd(due, parent) {
+let addParent = null;  // 子タスクを足しているときの親（「＋ 子」から来たとき。部局・カテゴリ・親は決まっている）
+// preset：{unit, cat}（フォルダの「＋ ここに足す」から来たとき）
+function openAdd(due, parent, preset) {
   editing = null;
   addParent = parent || null;
   $('#dlgTitle').textContent = parent ? '「' + parent.task.slice(0, 20) + '」の子タスクを足す' : which === 'draft' ? '来年の下書きに足す' : 'タスクを足す';
   $('#fYearly').checked = parent ? isYearly(parent.kind) : false;
   $('#fTask').value = '';
   $('#fDue').value = due || '';
-  const dept = parent ? parent.dept : board !== 'club' ? board : scopeDept() || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
+  const team = board !== 'club';
+  const sd = scopeDept();
+  const dept = parent ? parent.dept : team ? board : preset ? preset.unit : sd || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
   // 個人のタスクは今年の台帳にだけ。子は親と同じ（個人の親には個人の子、部の親には部の子）
   const draftAdd = parent ? !!parent.draft : which === 'draft';
   let opts = D.depts.filter((d) => d !== PERSONAL || !draftAdd);
@@ -1178,13 +1322,23 @@ function openAdd(due, parent) {
   opts = opts.filter((d) => (board === 'club' ? !isTeamD(d) : d === board));  // チームのボードではそのチームのタスクだけを足す
   $('#fDept').innerHTML = opts.map((d) => '<option value="' + esc(d) + '"' + (d === dept ? ' selected' : '') + '>' + esc(deptLabel(d)) + '</option>').join('');
   $('#fDeptLabel').textContent = '部局';
+  $('#rowDept').hidden = team;  // チームのボードでは「チームの中の部局」を選ぶ
+  $('#rowUnit').hidden = !team;
+  const myUnit = (D.me.units || []).find((u) => unitsFor(board).includes(u)) || '';
+  fillUnits(parent ? parent.unit : preset ? preset.unit : team ? (sd || myUnit) : '');
+  fillCats(parent ? parent.cat : preset ? preset.cat : '');
+  $('#rowPar').hidden = false;
+  fillParents(parent || null);
+  // 「＋ 子」から来たときは、部局・カテゴリ・親は決まっている
+  ['#fDept', '#fUnit', '#fCat', '#fPar'].forEach((x) => { $(x).disabled = !!parent; });
+  $('#fCatHint').textContent = parent ? '親タスクと同じ場所に入ります' : '';
+  $('#fCatHint').hidden = !parent;
   $('#fOwner').disabled = false;
   $('#rowYearly').hidden = false;
-  $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ');
+  $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ', curUnit());
   $('#fOwner').value = parent ? '' : scope === 'me' ? D.me.name : '';
   $('#fMemo').value = '';
   $('#fMemoLabel').textContent = 'メモ（任意）';
-  $('#rowDept').hidden = board !== 'club';  // チームのボードでは選ぶものがないので出さない
   $('#rowMemo').hidden = false;
   $('#rowStatus').hidden = true;
   $('#fInfo').hidden = true;
@@ -1203,7 +1357,7 @@ function syncPersonal() {
   if (editing) return;
   const p = $('#fDept').value === PERSONAL;
   if (p) $('#fOwner').innerHTML = '<option value="">' + esc(D.me.name) + '（自分）</option>';
-  else if ($('#fOwner').disabled) { $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ'); $('#fOwner').value = scope === 'me' && !addParent ? D.me.name : ''; }
+  else if ($('#fOwner').disabled) { $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ', curUnit()); $('#fOwner').value = scope === 'me' && !addParent ? D.me.name : ''; }
   $('#fOwner').disabled = p;
   $('#rowYearly').hidden = p;
   if (p) $('#fYearly').checked = false;
@@ -1217,6 +1371,7 @@ async function submitForm(e) {
   e.preventDefault();
   const task = $('#fTask').value.trim();
   if (!task) { $('#fMsg').textContent = '「やること」を入れてください'; $('#fTask').focus(); return; }
+  if ($('#fCat').value === NEWCAT && !curCat()) { $('#fMsg').textContent = '新しいカテゴリの名前を入れてください（やめるときは「カテゴリなし」を選びます）'; $('#fCatNew').focus(); return; }
   const btn = $('#fSave');
   btn.disabled = true;
   try {
@@ -1226,16 +1381,23 @@ async function submitForm(e) {
       // 毎年のチェック：外したら「今年だけ」。もともと「2年ごと」なら、チェックが付いたままのときはそのまま
       const kind = $('#fYearly').checked ? (isYearly(editing.kind) ? editing.kind : '毎年') : '今年だけ';
       const now = { task, due: $('#fDue').value, owner: $('#fOwner').value, status: st ? st.value : editing.status, kind, memo: $('#fMemo').value.trim() };
-      if (editing.dept === PERSONAL && !$('#rowDept').hidden) now.dept = $('#fDept').value;  // 個人→部のタスクにする
+      if (editing.dept === PERSONAL && !$('#rowDept').hidden && !$('#fDept').disabled) now.dept = $('#fDept').value;  // 個人→部のタスクにする
+      if (!editing.parent) {  // 子は親と同じ場所なので送らない
+        now.cat = curCat();
+        if (isTeamD(editing.dept)) now.unit = $('#fUnit').value;
+      }
+      const moved = !editing.parent && kidsOf(editing).length && (now.cat !== (editing.cat || '') || (now.unit != null && now.unit !== (editing.unit || '')));
       Object.keys(now).forEach((k) => { if (String(now[k]) !== String(editing[k] || '')) patch[k] = now[k]; });
       if (!Object.keys(patch).length) { $('#dlg').close(); return; }
       const r = await change(editing.id, patch, '保存しました', !patch.dept);  // 部のタスクにしたら戻せない（「元に戻す」を出さない）
       if (r === 'ok') $('#dlg').close();
+      if (r === 'ok' && moved) load(true);  // 子もいっしょに移ったのを取り込む
       if (r === 'conflict') { openEdit(editing.id); $('#fMsg').textContent = 'ほかの人が先に直していました。今の内容にしたので、もう一度直して保存してください。'; }
     } else {
       const item = {
         task, due: $('#fDue').value, dept: $('#fDept').value, owner: $('#fOwner').value, memo: $('#fMemo').value.trim(),
-        yearly: $('#fYearly').checked, draft: addParent ? !!addParent.draft : which === 'draft', parent: addParent ? addParent.id : '',
+        yearly: $('#fYearly').checked, draft: addParent ? !!addParent.draft : which === 'draft', parent: addParent ? addParent.id : $('#fPar').value,
+        unit: isTeamD($('#fDept').value) ? $('#fUnit').value : '', cat: curCat(),
       };
       const r = await api('addTask', item);
       replace(r.task);
@@ -1316,6 +1478,8 @@ document.addEventListener('click', (e) => {
     if (again) again.focus();
     return;
   }
+  const ac = e.target.closest('[data-addcat]');
+  if (ac) { const [u, c] = JSON.parse(ac.dataset.addcat); openAdd('', null, { unit: u, cat: c }); return; }
   const ak = e.target.closest('[data-addkid]');
   if (ak) { const p = allTasks().find((x) => x.id === ak.dataset.addkid); if (p) { parOpen[p.id] = true; openAdd(p.due, p); } return; }
   const chip = e.target.closest('#meetSum a');
@@ -1387,7 +1551,17 @@ $('#wDraft').onclick = () => setWhich('draft');
 $('#fab').onclick = () => openAdd('');
 $('#fSplit').onclick = () => { const p = editing; if (p) openAdd(p.due, p); };
 $('#form').onsubmit = submitForm;
-$('#fDept').onchange = syncPersonal;
+$('#fDept').onchange = () => { syncPersonal(); if (!editing) onPlaceChange('dept'); };
+$('#fUnit').onchange = () => onPlaceChange('unit');
+$('#fCat').onchange = () => onPlaceChange('cat');
+$('#fCatNew').oninput = () => onPlaceChange('catnew');
+$('#fPar').onchange = () => {  // 親を選んだら、期限が空なら親の期限に
+  const p = allTasks().find((x) => x.id === $('#fPar').value);
+  if (p && !$('#fDue').value && p.due) $('#fDue').value = p.due;
+  if (p) $('#fYearly').checked = isYearly(p.kind);
+};
+// フォルダの開け閉めを覚える（toggle は伝わってこないので、つかまえる側で受ける）
+document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.dataset && d.dataset.fold) foldOpen[d.dataset.fold] = d.open; }, true);
 $('#fClose').onclick = $('#fCancel').onclick = () => $('#dlg').close();
 $('#fDel').onclick = askDelete;
 $('#delOk').onclick = doDelete;
@@ -1456,30 +1630,31 @@ const demo = (() => {
     ['青山', '主将局', false], ['石田', '主将局', false], ['上野', '主将局', false], ['江口', '主将局', false],
     ['小野', '合宿', true], ['北村', '合宿', false], ['久保', '外務', true], ['坂井', '外務', false],
     ['島田', '経理', true], ['田村', '医務', true], ['中西', '内務', true], ['野口', 'OBOG', true], ['福田', '企画', true],
-  ].map(([name, dept, head]) => ({ name, dept, head, teams: ['青山', '石田', '北村', '坂井'].includes(name) ? ['新歓首脳'] : [] }));
+  ].map(([name, dept, head]) => ({ name, dept, head, teams: ['青山', '石田', '北村', '坂井'].includes(name) ? ['新歓首脳'] : [],
+    units: { 青山: ['新歓首脳'], 石田: ['新歓代表', 'SNS'], 北村: ['ビラ', 'パンフ'], 坂井: ['デジタル', 'SNS'] }[name] || [] }));
   let n = 100;
   const mk = (dept, task, due, owner, extra) => Object.assign({
     id: 'T0' + (n++), dept, task, due: due == null ? '' : dd(due), owner, status: '未着手', parent: '', kind: '毎年', to: '', memo: '', draft: false,
     updated: Date.now() - (5 + (n % 9)) * 864e5, source: ['タスク画面（青山）', 'メール', '行事', 'フォーム（石田）'][n % 4],
   }, extra || {});
   const tasks = [
-    mk('主将局', '指導者ミーティングの日程を確定して連絡', -2, '石田', { status: '進行中' }),
+    mk('主将局', '指導者ミーティングの日程を確定して連絡', -2, '石田', { status: '進行中', cat: '指導者との連絡' }),
     mk('主将局', '年間目標の草案を作る', 3, '青山'),
     mk('主将局', '1年生と面談して近況を聞く（前半）', 6, '上野', { status: '進行中' }),
-    mk('主将局', '審査担当に次回審査の段取りを依頼', 1, '石田'),
-    mk('主将局', '審査計画書を協会へ提出', 9, '石田', { to: '日本躰道協会', memo: '審査の2週間前まで' }),
-    mk('主将局', '代替わり：競技リーダー・局長を指導者に報告', 20, '青山', { to: '指導者' }),
+    mk('主将局', '審査担当に次回審査の段取りを依頼', 1, '石田', { cat: '審査' }),
+    mk('主将局', '審査計画書を協会へ提出', 9, '石田', { to: '日本躰道協会', memo: '審査の2週間前まで', cat: '審査' }),
+    mk('主将局', '代替わり：競技リーダー・局長を指導者に報告', 20, '青山', { to: '指導者', cat: '指導者との連絡' }),
     mk('主将局', 'OBOG会へご挨拶の日程調整', 33, '江口'),
     mk('主将局', '年始ミーティングの議題を集める', 45, '上野'),
     mk('主将局', '主将局ミーティング議事録の共有', 0, '江口', { status: '済', updated: Date.now() - 864e5 }),
-    mk('合宿', '春合宿 実施計画書を作る', 12, '小野', { to: '日本躰道協会', id: 'T0P1' }),
-    mk('合宿', '去年の計画書を探して日程・人数を直す', 6, '北村', { parent: 'T0P1' }),
-    mk('合宿', '監督に計画書を確認してもらう', 10, '小野', { parent: 'T0P1' }),
-    mk('合宿', '春合宿 宿の仮予約', 5, '小野'),
-    mk('合宿', '春合宿 参加者アンケートを出す', 8, '北村'),
-    mk('合宿', '春合宿 バスの見積もりを2社から取る', 15, '小野'),
-    mk('外務', '外部体育館の予約（12月分）', -1, '坂井'),
-    mk('外務', '外部体育館の予約（1月分）', 24, '坂井'),
+    mk('合宿', '春合宿 実施計画書を作る', 12, '小野', { to: '日本躰道協会', id: 'T0P1', cat: '春合宿' }),
+    mk('合宿', '去年の計画書を探して日程・人数を直す', 6, '北村', { parent: 'T0P1', cat: '春合宿' }),
+    mk('合宿', '監督に計画書を確認してもらう', 10, '小野', { parent: 'T0P1', cat: '春合宿' }),
+    mk('合宿', '春合宿 宿の仮予約', 5, '小野', { cat: '春合宿' }),
+    mk('合宿', '春合宿 参加者アンケートを出す', 8, '北村', { cat: '春合宿' }),
+    mk('合宿', '春合宿 バスの見積もりを2社から取る', 15, '小野', { cat: '春合宿' }),
+    mk('外務', '外部体育館の予約（12月分）', -1, '坂井', { cat: '体育館' }),
+    mk('外務', '外部体育館の予約（1月分）', 24, '坂井', { cat: '体育館' }),
     mk('外務', '城南地区への保険申請', 10, '久保', { to: '城南地区' }),
     mk('経理', '前月の帳簿を主将局・指導者へ共有', 4, '島田', { to: '主将局・指導者' }),
     mk('経理', '協会費の振込', 18, '島田', { to: '日本躰道協会' }),
@@ -1489,29 +1664,30 @@ const demo = (() => {
     mk('内務', 'お歳暮の注文', 7, '中西'),
     mk('内務', '道場の備品の数を数える', 26, '中西', { status: '要確認', kind: '今年だけ' }),
     mk('OBOG', 'OBOG会メルマガの原稿', 13, '野口'),
-    mk('企画', '新年会を開く準備', 25, '福田', { id: 'T0P2' }),
-    mk('企画', '去年の参加者リストをもらう', -4, '福田', { parent: 'T0P2', status: '済' }),
-    mk('企画', '予算を経理と相談', -1, '福田', { parent: 'T0P2' }),
-    mk('企画', '新年会の会場を探す', 16, '福田', { parent: 'T0P2' }),
-    mk('企画', '新年会の出欠フォームを作る', 22, '', { parent: 'T0P2' }),
+    mk('企画', '新年会を開く準備', 25, '福田', { id: 'T0P2', cat: '新年会' }),
+    mk('企画', '去年の参加者リストをもらう', -4, '福田', { parent: 'T0P2', status: '済', cat: '新年会' }),
+    mk('企画', '予算を経理と相談', -1, '福田', { parent: 'T0P2', cat: '新年会' }),
+    mk('企画', '新年会の会場を探す', 16, '福田', { parent: 'T0P2', cat: '新年会' }),
+    mk('企画', '新年会の出欠フォームを作る', 22, '', { parent: 'T0P2', cat: '新年会' }),
     mk('広報', '大会結果をインスタに載せる', -3, '', { status: '済' }),
     mk('常務', '城西大会の役員の割り振り', null, ''),
     mk('主将局', '部の共有アカウントのパスワード保管者を決める', null, '青山'),
     // 新歓首脳のボード（青山・石田・北村・坂井にだけ見える）
-    mk('新歓首脳', '【女子オリ】オリター・構内新歓の要員を決めて申し込む', 2, '北村', { status: '進行中' }),
-    mk('新歓首脳', '【全体】新歓の目的・コンセプトを決める（首脳mtg）', 5, '石田'),
-    mk('新歓首脳', '【SNS・ビラ】Adobe・Canvaの契約（ブラックフライデー）', 10, '坂井', { memo: '去年は2月までで足りた' }),
-    mk('新歓首脳', '【登録】第1回サークル代表者会議に出る', 34, '', { to: 'オリエンテーション委員会' }),
-    mk('新歓首脳', '【テント列】少林寺拳法部さんと合同テントの相談', 40, '青山'),
-    mk('新歓首脳', '【全体】オリ合宿の補助費の方針を決めて学壱に周知', -1, '石田'),
-    mk('新歓首脳', '【登録】委員会の手続きを始める（代表者会議→団体登録）', 40, '', { id: 'T0S1' }),
-    mk('新歓首脳', '第1回サークル代表者会議に出る', 34, '北村', { parent: 'T0S1', to: 'オリエンテーション委員会' }),
-    mk('新歓首脳', 'COMPASSの締切を書き写す', 36, '', { parent: 'T0S1' }),
-    mk('新歓首脳', '団体登録・正副責任者の登録', 40, '坂井', { parent: 'T0S1' }),
-    mk('新歓首脳', '【広報物】ビラ・看板を入稿まで仕上げる', 20, '', { id: 'T0S2' }),
-    mk('新歓首脳', 'Canva・Adobeの契約', -2, '坂井', { parent: 'T0S2' }),
-    mk('新歓首脳', 'コンセプト決めと写真さがし', 6, '', { parent: 'T0S2' }),
-    mk('新歓首脳', '進み具合を確認', 18, '石田', { parent: 'T0S2', status: '済' }),
+    mk('新歓首脳', '【女子オリ】オリター・構内新歓の要員を決めて申し込む', 2, '北村', { status: '進行中', unit: '新入生係', cat: 'オリ・構内新歓' }),
+    mk('新歓首脳', '【全体】新歓の目的・コンセプトを決める（首脳mtg）', 5, '石田', { unit: '新歓首脳', cat: '全体の方針' }),
+    mk('新歓首脳', '【SNS・ビラ】Adobe・Canvaの契約（ブラックフライデー）', 10, '坂井', { memo: '去年は2月までで足りた', unit: 'デジタル', cat: 'ツールの契約' }),
+    mk('新歓首脳', '【テント列】少林寺拳法部さんと合同テントの相談', 40, '青山', { unit: '企画・看板組み立て', cat: 'テント列' }),
+    mk('新歓首脳', '【全体】オリ合宿の補助費の方針を決めて学壱に周知', -1, '石田', { unit: '新歓首脳', cat: '全体の方針' }),
+    mk('新歓首脳', '【登録】委員会の手続きを始める（代表者会議→団体登録）', 40, '', { id: 'T0S1', unit: '新歓代表', cat: '委員会の手続き' }),
+    mk('新歓首脳', '第1回サークル代表者会議に出る', 34, '北村', { parent: 'T0S1', to: 'オリエンテーション委員会', unit: '新歓代表', cat: '委員会の手続き' }),
+    mk('新歓首脳', 'COMPASSの締切を書き写す', 36, '', { parent: 'T0S1', unit: '新歓代表', cat: '委員会の手続き' }),
+    mk('新歓首脳', '団体登録・正副責任者の登録', 40, '坂井', { parent: 'T0S1', unit: '新歓代表', cat: '委員会の手続き' }),
+    mk('新歓首脳', '【広報物】ビラを入稿まで仕上げる', 20, '', { id: 'T0S2', unit: 'ビラ', cat: '制作' }),
+    mk('新歓首脳', 'コンセプト決めと写真さがし', 6, '', { parent: 'T0S2', unit: 'ビラ', cat: '制作' }),
+    mk('新歓首脳', '進み具合を確認', 18, '石田', { parent: 'T0S2', status: '済', unit: 'ビラ', cat: '制作' }),
+    mk('新歓首脳', 'ビラ配りのシフトを組む', 45, '北村', { unit: 'ビラ', cat: '配る' }),
+    mk('新歓首脳', '投稿カレンダー（3〜4月）を作る', 30, '石田', { unit: 'SNS', cat: '投稿' }),
+    mk('新歓首脳', 'インスタのハイライトを整理', 25, '坂井', { unit: 'SNS' }),
     // 個人のタスク（石田さんにだけ見える）
     mk('個人', '道着をクリーニングに出す', 1, '石田', { kind: '今年だけ', source: 'タスク画面（石田）' }),
     mk('個人', '全日本の個人エントリーを考える', 10, '石田', { kind: '今年だけ', source: 'タスク画面（石田）', id: 'T0P3' }),
@@ -1533,9 +1709,10 @@ const demo = (() => {
     { name: '二段審査', kind: '審査', start: dd(37), end: dd(37), next: false },
     { name: '春合宿', kind: '合宿', start: dd(106), end: dd(109), next: true },
   ];
-  const me = { name: '石田', dept: '主将局', core: true, boss: false, teams: ['新歓首脳'] };
+  const me = { name: '石田', dept: '主将局', core: true, boss: false, teams: ['新歓首脳'], units: ['新歓代表', 'SNS'] };
+  const teamUnits = { 新歓首脳: ['新歓首脳', '新歓代表', 'SNS', 'パンフ', 'PV', 'パワポ', '看板デザイン', 'ビラ', '企画・看板組み立て', '新入生係', 'ご飯・会計', '演武', 'デジタル'] };
   return {
-    appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務', '個人', '新歓首脳'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48) }; },
+    appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務', '個人', '新歓首脳'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48), teamUnits }; },
     saveTask(id, change) {
       const t = tasks.concat(draft).find((x) => x.id === id);
       let note = '';
@@ -1544,8 +1721,11 @@ const demo = (() => {
         ks2.forEach((x) => { x.dept = change.dept; });
         note = 'みんなに見えるようになりました' + (ks2.length ? '（子タスク ' + ks2.length + '件も）' : '');
       }
+      if (t.parent) { delete change.cat; delete change.unit; }  // 子は親と同じ場所
       Object.keys(change).forEach((k) => { t[k] = k === 'order' ? Number(change[k]) : change[k]; });
       t.updated = Date.now();
+      // 親の場所を変えたら子も
+      if ('cat' in change || 'unit' in change) tasks.concat(draft).filter((x) => x.parent === id).forEach((x) => { x.cat = t.cat || ''; x.unit = t.unit || ''; });
       return { task: t, note };
     },
     deleteTask(id) {
@@ -1557,8 +1737,10 @@ const demo = (() => {
     },
     addTask(item) {
       const head = members.find((m) => m.head && m.dept === item.dept);
+      const p = item.parent ? tasks.concat(draft).find((x) => x.id === item.parent) : null;
       const t = mk(item.dept, item.task, null, item.dept === '個人' ? me.name : item.owner || (item.draft || !head ? '' : head.name),
-        { due: item.due, memo: item.memo, source: 'タスク画面（' + me.name + '）', kind: item.yearly ? '毎年' : '今年だけ', updated: Date.now(), draft: !!item.draft, parent: item.parent || '' });
+        { due: item.due, memo: item.memo, source: 'タスク画面（' + me.name + '）', kind: item.yearly ? '毎年' : '今年だけ', updated: Date.now(), draft: !!item.draft, parent: item.parent || '',
+          unit: p ? p.unit || '' : item.unit || '', cat: p ? p.cat || '' : item.cat || '' });
       (item.draft ? draft : tasks).push(t);
       return { task: t };
     },
