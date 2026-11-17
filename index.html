@@ -438,6 +438,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
     <div class="meethead">
       <h2 id="meetTitle"></h2>
       <div class="seg2 mm" role="group" aria-label="会議の並べ方">
+        <button type="button" data-mm="fold" aria-pressed="false">フォルダ</button>
         <button type="button" data-mm="par" aria-pressed="true">親タスクごと</button>
         <button type="button" data-mm="due" aria-pressed="false">期限ごと</button>
       </div>
@@ -594,8 +595,9 @@ function catsOf(dept, unit) {
 }
 let loadSel = null;
 // 会議の並べ方：par＝親タスクごと（親の進み具合と子をまとめて見る）／due＝期限ごと（遅れ・今週・来週…）
-let meetMode = store.get('meetMode', 'par');
-if (!['par', 'due'].includes(meetMode)) meetMode = 'par';
+// 2026-11-17 に「フォルダ」を足したので、覚えておく名前を変えて、みんな一度はフォルダから始まるようにする
+let meetMode = store.get('meetMode2', 'fold');
+if (!['fold', 'par', 'due'].includes(meetMode)) meetMode = 'fold';
 // 会議に出す範囲：meetSpan＝何日先まで（0＝すべて。期限のないタスクも出る）／meetDone＝済んだものも出す（同じ長さだけ前まで）
 const SPANS = { 28: '4週間', 92: '3か月', 183: '半年', 0: 'すべて' };
 let meetSpan = Number(store.get('meetSpan', 28));
@@ -973,6 +975,7 @@ function renderMeet() {
   document.querySelectorAll('[data-mm]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mm === meetMode)));
   const note = (scope === 'me' || scope === PERSONAL ? '<p class="lead">会議では、上の「表示する範囲」の「' + (scope === 'me' ? '自分の担当' : '個人') + '」は使わず、' + (board === 'club' ? '全部局（または部局ごと）' : board + 'の全員分') + 'で出しています。個人のタスクは会議には出ません。</p>' : '');
   if (meetMode === 'par') { $('#meetBody').innerHTML = meetParHtml(act, dept, n, nwEnd) + doneHtml + note; return; }
+  if (meetMode === 'fold') { $('#meetBody').innerHTML = meetFoldHtml(dept, n) + doneHtml + note; return; }
   $('#meetBody').innerHTML = secs.map((x) => '<div class="lgroup" id="' + x[0] + '"><h3 class="' + (x[3] === 'late' ? 'is-late' : '') + '">' + esc(x[1]) + '（' + x[2].length + '件）</h3>' +
     (x[2].length ? rowsHtml(x[2].sort(byDue)) : '<div class="empty">なし</div>') + '</div>').join('') + doneHtml + note;
 }
@@ -1040,52 +1043,73 @@ function parGroupHtml(g, list, note) {
     (note.text ? '<p class="phide">' + esc(note.text) + '</p>' : '') + '</div></div>';
 }
 
-// フォルダ：部局 → カテゴリ → 親タスク（子つき）／親のないタスク。上の「表示する範囲」「出すタスク」に合わせる
-const foldOpen = {};  // 開け閉めしたものだけ覚える（最新にしても戻らないように）
-function renderPar() {
-  const all = pool();
+// フォルダの形（部局 → カテゴリ → 親タスク（子つき）／親のないタスク）を作る。フォルダのタブと会議で使う
+// all：対象のタスク／solo(t)：親のないタスクを出すか／grp(g)：親のまとまりを出すか／kid(k)：親の中に出す子
+// o.pre：開け閉めを覚える名前の頭／o.openCat：カテゴリを最初から開くか／o.add：「＋ ここに足す」を出すか
+function foldHtml(all, solo, grp, kid, o) {
   const units = unitsFor(board).slice();
   all.forEach((t) => { const u = unitOf(t); if (!units.includes(u)) units.push(u); });  // 一覧にない部局・部局なしは最後に
-  let total = 0;
-  const html = units.map((u) => {
+  return units.map((u) => {
     const inU = all.filter((t) => unitOf(t) === u);
     if (!inU.length) return '';
     const cats = [...new Set(inU.map((t) => t.cat || ''))].sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b, 'ja'));
     let uAct = 0, uLate = 0;
     const body = cats.map((c) => {
       const inC = inU.filter((t) => (t.cat || '') === c);
-      const groups = sortGroups(inC.filter((t) => !t.parent && kidsOf(t).length).map(parGroup).filter((g) => [g.p].concat(g.kids).some(shown)));
+      const pars = inC.filter((t) => !t.parent && kidsOf(t).length);
+      const groups = sortGroups(pars.map(parGroup).filter(grp));
       const inG = new Set();
-      inC.filter((t) => !t.parent && kidsOf(t).length).forEach((p) => { inG.add(p.id); kidsOf(p).forEach((k) => inG.add(k.id)); });
-      const solo = inC.filter((t) => !inG.has(t.id) && shown(t)).sort(byDue);
-      if (!groups.length && !solo.length) return '';
-      const vis = new Set(solo.map((t) => t.id));
-      groups.forEach((g) => { vis.add(g.p.id); g.kids.forEach((k) => vis.add(k.id)); });
+      pars.forEach((p) => { inG.add(p.id); kidsOf(p).forEach((k) => inG.add(k.id)); });
+      const solos = inC.filter((t) => !inG.has(t.id) && solo(t)).sort(byDue);
+      if (!groups.length && !solos.length) return '';
+      const vis = new Set(solos.map((t) => t.id));
+      groups.forEach((g) => { vis.add(g.p.id); g.kids.filter(kid).forEach((k) => vis.add(k.id)); });
       const list = inC.filter((t) => vis.has(t.id));
       const act = list.filter(isActive).length, late = list.filter(isLate).length;
-      uAct += act; uLate += late; total += vis.size;
-      const key = 'c:' + board + '/' + u + '/' + c;
-      const open = key in foldOpen ? foldOpen[key] : !!scopeDept() || cats.length === 1;
+      uAct += act; uLate += late;
+      const key = o.pre + 'c:' + board + '/' + u + '/' + c;
+      const open = key in foldOpen ? foldOpen[key] : o.openCat || cats.length === 1;
       return '<details class="fold cat" data-fold="' + esc(key) + '"' + (open ? ' open' : '') + '><summary><span class="fic" aria-hidden="true">📁</span><span>' + esc(c || NOCAT) + '</span>' +
         '<span class="fc">' + (groups.length ? '親 ' + groups.length + '・' : '') + 'まだ ' + act + '件' + (late ? '・<span class="late">遅れ ' + late + '</span>' : '') + '</span></summary>' +
         '<div class="fbox">' +
         groups.map((g) => {
-          const ks2 = g.kids.filter(rangeOk).sort(byDue);
+          const ks2 = g.kids.filter(kid).sort(byDue);
           const hid = g.kids.length - ks2.length;
-          return parGroupHtml(g, ks2, { empty: '今の「出すタスク」で出る子はありません', text: hid ? 'ほかに済・不要の子 ' + hid + '件（上の「出すタスク」で出せます）' : '' });
+          return parGroupHtml(g, ks2, { empty: o.kidEmpty, text: hid ? o.kidHid(hid) : '' });
         }).join('') +
-        (solo.length ? '<div class="fsolo">' + (groups.length ? '<p>親のないタスク</p>' : '') + rowsHtml(solo) + '</div>' : '') +
-        (which === 'live' || u !== PERSONAL ? '<button type="button" class="padd" data-addcat="' + esc(JSON.stringify([u, c])) + '" aria-label="' + esc(unitName(u) + ' › ' + (c || NOCAT)) + ' にタスクを足す">＋ ここに足す</button>' : '') +
+        (solos.length ? '<div class="fsolo">' + (groups.length ? '<p>親のないタスク</p>' : '') + rowsHtml(solos) + '</div>' : '') +
+        (o.add && (which === 'live' || u !== PERSONAL) ? '<button type="button" class="padd" data-addcat="' + esc(JSON.stringify([u, c])) + '" aria-label="' + esc(unitName(u) + ' › ' + (c || NOCAT)) + ' にタスクを足す">＋ ここに足す</button>' : '') +
         '</div></details>';
     }).join('');
     if (!body) return '';
-    const key = 'u:' + board + '/' + u;
+    const key = o.pre + 'u:' + board + '/' + u;
     const open = key in foldOpen ? foldOpen[key] : true;
     return '<details class="fold" data-fold="' + esc(key) + '"' + (open ? ' open' : '') + '><summary>' + (board === 'club' ? dotHtml(u) : '') + '<span>' + esc(unitName(u)) + '</span>' +
       '<span class="fc">まだ ' + uAct + '件' + (uLate ? '・<span class="late">遅れ ' + uLate + '</span>' : '') + '</span></summary><div class="fbox">' + body + '</div></details>';
   }).join('');
+}
+
+// フォルダのタブ：上の「表示する範囲」「出すタスク」に合わせる
+const foldOpen = {};  // 開け閉めしたものだけ覚える（最新にしても戻らないように）
+function renderPar() {
+  const html = foldHtml(pool(), shown, (g) => [g.p].concat(g.kids).some(shown), rangeOk, {
+    pre: '', openCat: !!scopeDept(), add: true,
+    kidEmpty: '今の「出すタスク」で出る子はありません', kidHid: (n) => 'ほかに済・不要の子 ' + n + '件（上の「出すタスク」で出せます）',
+  });
   $('#parLead').textContent = '部局 → カテゴリ（フォルダ）→ 親タスク → タスクの順にまとめています。上の「表示する範囲」「出すタスク」に合わせています。カテゴリは、タスクを足すときに作れます。';
   $('#parBody').innerHTML = html || '<div class="empty">この範囲のタスクはありません。上の選択を「全部」や「過去も含めて全部」にすると出ます。</div>';
+}
+
+// 会議（フォルダ）：「先の範囲」の中に期限がある・遅れている、済んでいないものだけを、部局 → カテゴリ → 親タスクで出す
+function meetFoldHtml(dept, n) {
+  const soon = (t) => isActive(t) && (t.due ? inSpan(n(t)) : !meetSpan);
+  const all = D.tasks.filter((t) => inBoard(t) && t.dept !== PERSONAL && (!dept || unitOf(t) === dept));
+  const h = foldHtml(all, soon, (g) => !g.finished && [g.p].concat(g.kids).some(soon), isActive, {
+    pre: 'm', openCat: true, add: false,
+    kidEmpty: '子はすべて済・不要です。親を「済」にしてください', kidHid: (k) => '済・不要の子 ' + k + '件',
+  });
+  return '<p class="lead">' + esc(spanIn()) + 'に期限がある・遅れている、まだ済んでいないタスクを、部局 → カテゴリ → 親タスクでまとめています。期限のないものは「先の範囲」を「すべて」にすると出ます。</p>' +
+    (h || '<div class="empty">この範囲のタスクはありません</div>');
 }
 
 /* ---------- 直す・足す ---------- */
@@ -1483,15 +1507,15 @@ document.addEventListener('click', (e) => {
   const ak = e.target.closest('[data-addkid]');
   if (ak) { const p = allTasks().find((x) => x.id === ak.dataset.addkid); if (p) { parOpen[p.id] = true; openAdd(p.due, p); } return; }
   const chip = e.target.closest('#meetSum a');
-  if (chip && meetMode === 'par') {
+  if (chip && (meetMode === 'par' || meetMode === 'fold')) {
     e.preventDefault();
-    meetMode = 'due'; store.set('meetMode', meetMode); renderMeet();
+    meetMode = 'due'; store.set('meetMode2', meetMode); renderMeet();
     const to = document.querySelector(chip.getAttribute('href'));
     if (to) to.scrollIntoView();
     return;
   }
   const mm = e.target.closest('[data-mm]');
-  if (mm) { meetMode = mm.dataset.mm; store.set('meetMode', meetMode); renderMeet(); return; }
+  if (mm) { meetMode = mm.dataset.mm; store.set('meetMode2', meetMode); renderMeet(); return; }
   const tab = e.target.closest('[data-view]');
   if (tab) { view = tab.dataset.view; store.set('view', view); render(); window.scrollTo(0, 0); return; }
   const open = e.target.closest('[data-open-day]');
