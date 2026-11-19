@@ -294,6 +294,11 @@ body.big .meet .lgroup h3 { font-size: 17px; }
 .pmeta .late { color: var(--late); font-weight: 700; }
 .pbar { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: var(--sunk); border: 1px solid var(--line); overflow: hidden; vertical-align: middle; }
 .pbar i { display: block; height: 100%; background: var(--ok); }
+/* わたし：担当なしのタスクの「自分がやる」 */
+.take { flex: none; align-self: center; margin-right: 10px; border: 1px solid var(--accent); background: var(--surface); border-radius: 6px; font-size: 12.5px; padding: 5px 10px; color: var(--accent); font-weight: 700; white-space: nowrap; }
+.take:hover { background: var(--accent-soft); }
+.take:disabled { opacity: .5; }
+.mine .lgroup h3 small { font-weight: 400; margin-left: 6px; }
 .padd { flex: none; align-self: center; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 12.5px; padding: 4px 10px; color: var(--accent); font-weight: 500; white-space: nowrap; }
 .pbody { border-top: 1px solid var(--line); }
 .pbody .rows { border: 0; border-radius: 0; }
@@ -363,7 +368,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
 
 @media (max-width: 640px) {
   .tabs { margin-left: 0; width: 100%; }
-  .tabs button { flex: 1; padding: 6px 4px; }
+  .tabs button { flex: 1; padding: 6px 2px; font-size: 13px; white-space: nowrap; }  /* タブ5つでも1行に */
   .calbar h2 { min-width: 0; font-size: 18px; }
   .day { min-height: 76px; padding: 2px; }
   .chip { padding: 1px 3px; font-size: 10.5px; gap: 3px; }
@@ -382,6 +387,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
   <div class="top-in">
     <div class="brand" id="brand"><b id="brandName">部活タスク</b><div class="boards" id="boards" role="group" aria-label="どのタスクを見るか" hidden></div><span id="who">読み込み中…</span></div>
     <nav class="tabs" role="tablist" aria-label="表示">
+      <button role="tab" id="tab-mine" data-view="mine" aria-selected="false">わたし</button>
       <button role="tab" id="tab-cal" data-view="cal" aria-selected="true">カレンダー</button>
       <button role="tab" id="tab-load" data-view="load" aria-selected="false">混み具合</button>
       <button role="tab" id="tab-meet" data-view="meet" aria-selected="false">会議</button>
@@ -390,6 +396,8 @@ fieldset { border: 0; padding: 0; margin: 0; }
     <div class="filters">
       <label for="fScope" class="sr">表示する範囲</label>
       <select id="fScope"></select>
+      <label for="mineUnit" class="sr">どの部局を見るか</label>
+      <select id="mineUnit" hidden></select>
       <label for="fRange" class="sr">どのタスクを出すか</label>
       <select id="fRange">
         <option value="todo">やること（未完了）だけ</option>
@@ -409,7 +417,13 @@ fieldset { border: 0; padding: 0; margin: 0; }
 <div class="demo-wrap"><div class="draftnote" id="draftNote" hidden></div></div>
 
 <main class="wrap">
-  <section id="v-cal" aria-labelledby="tab-cal">
+  <section id="v-mine" class="mine" aria-labelledby="tab-mine" hidden>
+    <p class="lead" id="mineLead"></p>
+    <div class="sum" id="mineSum"></div>
+    <div id="mineBody"></div>
+  </section>
+
+  <section id="v-cal" aria-labelledby="tab-cal" hidden>
     <div class="calbar">
       <button class="nav" id="prev" type="button" aria-label="前の月">‹</button>
       <h2 id="mTitle" class="num"></h2>
@@ -557,7 +571,7 @@ const store = {
 let auth = {};
 let D = null;          // サーバーからのデータ
 let today = null;
-let view = store.get('view', 'cal');
+let view = store.get('view', 'mine');  // 初めて開いたときは「わたし」から
 let scope = store.get('scope', null);  // 初めて開いたときは、自分の担当がなければ「全部」
 // 出すタスク：todo＝未完了だけ／ahead＝今日以降すべて（済も。遅れと期限なしの未完了も出す）／all＝過去も含めて全部
 // 前の「済・要確認も出す」のチェック（all：true/false）を引きつぐ
@@ -587,6 +601,19 @@ const unitsFor = (b) => (b === 'club' ? D.depts.filter((d) => !isTeamD(d)) : (D.
 const unitName = (u) => (u ? deptLabel(u) : NOUNIT);
 // 場所の表示（部局 › カテゴリ）。チームのボードで部局が空なら、カテゴリだけ
 const placeText = (t) => [isTeamD(t.dept) ? t.unit : t.dept, t.cat].filter(Boolean).join(' › ');
+// 「主将局みんな」：その部局の全員でやると決めたタスク（担当の欄にこの名前が入る。サーバーの groupOf_ と同じ決まり）
+// 部のタスクは「部局＋みんな」、チームのタスクは「チームの部局＋みんな」（部局が空ならチーム名）
+const GROUP = 'みんな';
+const groupFor = (dept, unit) => (dept === PERSONAL || !dept ? '' : (isTeamD(dept) ? unit || dept : dept) + GROUP);
+const groupOf = (t) => groupFor(t.dept, t.unit);
+const isGroup = (t) => !!t.owner && t.owner === groupOf(t);
+// 自分がその「みんな」に入っているか（部は自分の部局、チームは『メンバー』J列のチームでの部局）
+function meInGroup(t) {
+  if (!isTeamD(t.dept)) return D.me.dept === t.dept;
+  return !t.unit || t.unit === t.dept || (D.me.units || []).includes(t.unit);
+}
+// 自分のタスク：担当が自分か、自分が入っている「〇〇みんな」
+const isMine = (t) => t.owner === D.me.name || (isGroup(t) && meInGroup(t));
 // そのボード・部局で使われているカテゴリ（名前の順）
 function catsOf(dept, unit) {
   const set = new Set();
@@ -674,7 +701,7 @@ function deptIndex(d) { const i = ['主将局', '内務', '経理', '企画', '�
 function fillScope() {
   // チームのボードでは部局の選択はない（自分の担当／全部だけ）
   const opts = [['me', '自分の担当'], ['all', '全部']].concat(unitsFor(board).map((d) => [d, deptLabel(d) + 'のタスク']));
-  if (!scope) scope = D.tasks.some((t) => t.owner === D.me.name && ACTIVE.includes(t.status)) ? 'me' : 'all';
+  if (!scope) scope = D.tasks.some((t) => isMine(t) && ACTIVE.includes(t.status)) ? 'me' : 'all';
   if (!opts.some((o) => o[0] === scope)) scope = board === 'club' ? 'me' : 'all';
   $('#fScope').setAttribute('aria-label', '表示する範囲（自分の担当・全部・部局）');
   $('#fScope').innerHTML = opts.map((o) => '<option value="' + esc(o[0]) + '"' + (o[0] === scope ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('');
@@ -688,7 +715,7 @@ function fillBoards() {
   $('#brand').classList.toggle('multi', !!list.length);
   if (!list.length) return;
   // 見ていないほうのボードに、自分の「遅れ・3日以内」があれば件数を出す（切り替え忘れで見落とさないように）
-  const mine = (b) => D.tasks.filter((t) => (b === 'club' ? !isTeamD(t.dept) : t.dept === b) && t.owner === D.me.name && isActive(t) && t.due && diff(today, pd(t.due)) <= 3).length;
+  const mine = (b) => D.tasks.filter((t) => (b === 'club' ? !isTeamD(t.dept) : t.dept === b) && isMine(t) && isActive(t) && t.due && diff(today, pd(t.due)) <= 3).length;
   $('#boards').innerHTML = [['club', '部活タスク']].concat(list.map((x) => [x, x]))
     .map((b) => {
       const n = b[0] === board ? 0 : mine(b[0]);
@@ -721,7 +748,7 @@ function rangeOk(t) {
 }
 function shown(t) {
   if (!rangeOk(t)) return false;
-  if (scope === 'me') return t.owner === D.me.name;
+  if (scope === 'me') return isMine(t);
   if (scope === 'all') return true;
   return unitOf(t) === scope;
 }
@@ -769,7 +796,8 @@ function chipHtml(t) {
 }
 const kidsBadge = (ks) => (ks.length ? '<span class="badge kids">子 ' + ks.filter((k) => k.status === '済').length + '/' + ks.filter((k) => k.status !== '不要').length + ' 済</span>' : '');
 // ord：同じ日の並べ替えの↑↓を出す（{first, last}）／inPar：親タスクの中に並べるとき（親の名前は出さない）
-function rowHtml(t, ord, inPar) {
+// take：「自分がやる」ボタンを出す（わたしタブの担当なし）
+function rowHtml(t, ord, inPar, take) {
   const done = t.status === '済';
   const canTick = t.status !== '不要';
   const p = inPar ? null : parentOf(t);
@@ -783,6 +811,7 @@ function rowHtml(t, ord, inPar) {
     (t.status === '進行中' ? '<span class="badge" style="background:var(--accent-soft);color:var(--accent)">進行中</span>' : '') + kidsBadge(ks) + '</span>' +
     '<span class="rm">' + (p ? '<span class="pn">▸ 親：' + esc(p.task) + '</span>' : '') + '<span>' + esc(placeText(t) || t.dept) + '</span><span class="own">' + esc(t.owner || '担当なし') + '</span><span>' + rel(t) + '</span>' +
     (t.to ? '<span>提出先：' + esc(t.to) + '</span>' : '') + '</span></button>' +
+    (take ? '<button type="button" class="take" data-take="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を自分の担当にする">自分がやる</button>' : '') +
     (ord ? '<span class="ord"><button type="button" data-move="-1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を上へ"' + (ord.first ? ' disabled' : '') + '>↑</button>' +
       '<button type="button" data-move="1" data-mid="' + esc(t.id) + '" aria-label="' + esc(t.task) + ' を下へ"' + (ord.last ? ' disabled' : '') + '>↓</button></span>' : '') + '</div>';
 }
@@ -792,11 +821,15 @@ const rowsHtml = (list, ord) => '<div class="rows">' + list.map((t, i) => rowHtm
 function render() {
   if (!D) return;
   if (myTeams().length && !$('#boards').contains(document.activeElement)) fillBoards();  // 件数の印を今の中身に合わせる
-  if (!['cal', 'load', 'meet', 'par'].includes(view)) view = 'cal';
-  ['cal', 'load', 'meet', 'par'].forEach((v) => {
+  const VIEWS = ['mine', 'cal', 'load', 'meet', 'par'];
+  if (!VIEWS.includes(view)) view = 'mine';
+  VIEWS.forEach((v) => {
     $('#v-' + v).hidden = v !== view;
     $('#tab-' + v).setAttribute('aria-selected', String(v === view));
   });
+  // わたし：上の「表示する範囲」の代わりに、部局を選ぶ
+  $('#fScope').hidden = view === 'mine';
+  $('#mineUnit').hidden = view !== 'mine';
   // 来年の下書き：ある間だけ切り替えを出す。会議はいつも今年
   $('#whichSeg').hidden = !D.draft.length || view === 'meet';
   $('#wLive').setAttribute('aria-pressed', String(which === 'live'));
@@ -807,10 +840,55 @@ function render() {
     $('#draftNote').textContent = '来年の下書きを見ています（' + D.draft.length + '件）。' +
       (D.switchDate ? md(D.switchDate) + 'の納会のあと' : '納会のあと') + 'に本番の台帳になります。ここで期限や担当を直しても、毎朝のメールはまだ届きません。';
   }
+  if (view === 'mine') renderMine();
   if (view === 'cal') renderCal();
   if (view === 'load') renderLoad();
   if (view === 'meet') renderMeet();
   if (view === 'par') renderPar();
+}
+
+// わたし：部局を1つ選び、①自分の担当 ②その部局の「みんな」 ③担当なし（自分がやるかもしれないもの）を期限の近い順に出す
+// 部局はボードごとに覚える。最初は自分の部局（チームでは『メンバー』J列のチームでの部局）。上の「出すタスク」に合わせる
+const MINE_ALL = '__all';
+const mineUnits = () => unitsFor(board).filter((u) => u !== PERSONAL);
+function mineUnit() {
+  const us = mineUnits();
+  const u = store.get('mineUnit:' + board, null);
+  if (u === MINE_ALL || us.includes(u)) return u;
+  const def = board === 'club' ? D.me.dept : (D.me.units || []).find((x) => us.includes(x));
+  return us.includes(def) ? def : MINE_ALL;
+}
+function renderMine() {
+  const u = mineUnit();
+  const all = u === MINE_ALL;
+  $('#mineUnit').innerHTML = '<option value="' + MINE_ALL + '">すべての部局</option>' +
+    mineUnits().map((x) => '<option value="' + esc(x) + '">' + esc(x) + '</option>').join('');
+  $('#mineUnit').value = u;
+  const inU = (t) => all || unitOf(t) === u;
+  const base = pool().filter(rangeOk);
+  const mine = base.filter((t) => t.owner === D.me.name && inU(t)).sort(byDue);
+  // みんな：部局を選んでいればその部局の「みんな」、すべてなら自分が入っている「みんな」
+  const grp = base.filter((t) => isGroup(t) && (all ? meInGroup(t) : unitOf(t) === u)).sort(byDue);
+  const none = base.filter((t) => !t.owner && t.dept !== PERSONAL && inU(t)).sort(byDue);
+  // 選んだ部局の外にある自分の担当（個人も）。見落とさないように件数だけ出す
+  const elsewhere = all ? 0 : base.filter((t) => isMine(t) && !inU(t)).length;
+  const where = all ? (board === 'club' ? '全部局' : board) : u;
+  const gName = all ? '自分が入っている「みんな」' : groupFor(board === 'club' ? u : board, u);
+  const secs = [
+    ['mi-me', '自分の担当', mine, '', false],
+    ['mi-grp', gName + 'でやる', grp, '全員でやると決めたもの', false],
+    ['mi-none', '担当なし', none, '自分がやるかもしれないもの。「自分がやる」で担当になります', true],
+  ];
+  $('#mineLead').textContent = where + 'のうち、自分の担当・' + (all ? '「〇〇みんな」' : gName) + '・担当が決まっていないタスクです。部局は上で選べます。上の「出すタスク」に合わせています。';
+  $('#mineSum').innerHTML = secs.map((s) => '<a href="#' + s[0] + '"' + (s[2].some(isLate) ? ' class="late"' : '') + '>' + esc(s[1]) + '<b>' + s[2].length + '</b></a>').join('');
+  const canTake = (t) => isActive(t);
+  $('#mineBody').innerHTML = secs.map((s) => {
+    const late = s[2].filter(isLate).length;
+    return '<div class="lgroup" id="' + s[0] + '"><h3>' + esc(s[1]) + '（' + s[2].length + '件' + (late ? '・<span class="late">遅れ ' + late + '</span>' : '') + '）' +
+      (s[3] ? '<small>' + esc(s[3]) + '</small>' : '') + '</h3>' +
+      (s[2].length ? '<div class="rows">' + s[2].map((t) => rowHtml(t, null, false, s[4] && canTake(t))).join('') + '</div>' : '<div class="empty">なし</div>') + '</div>';
+  }).join('') +
+    (elsewhere ? '<p class="mnote">ほかの部局' + (board === 'club' ? '・個人' : '') + 'にも、自分の担当が ' + elsewhere + '件あります（上で「すべての部局」を選ぶと出ます）。</p>' : '');
 }
 
 function renderCal() {
@@ -1156,7 +1234,10 @@ function ownerOptions(current, emptyLabel, unit) {
   const top = boardMembers().filter(inUnit);
   boardMembers().filter((m) => !inUnit(m)).forEach((m) => { (groups[m.dept || 'その他'] = groups[m.dept || 'その他'] || []).push(m); });
   let h = '<option value="">' + esc(emptyLabel) + '</option>';
-  if (current && !boardMembers().some((m) => m.name === current)) h += '<option value="' + esc(current) + '">' + esc(current) + '（メンバー表にない）</option>';
+  // 「主将局みんな」（全員でやる）。部は部局、チームはチームの部局（空ならチーム名）。個人にはない
+  const grp = board === 'club' ? groupFor(unit, '') : groupFor(board, unit);
+  if (grp) h += '<option value="' + esc(grp) + '">' + esc(grp) + '（全員でやる）</option>';
+  if (current && current !== grp && !boardMembers().some((m) => m.name === current)) h +='<option value="' + esc(current) + '">' + esc(current) + '（メンバー表にない）</option>';
   if (top.length) h += '<optgroup label="' + esc(unit + 'の人') + '">' + top.map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.head ? '（局長）' : '') + '</option>').join('') + '</optgroup>';
   Object.keys(groups).sort((a, b) => deptIndex(a) - deptIndex(b)).forEach((g) => {
     h += '<optgroup label="' + esc(g) + '">' + groups[g].map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.head ? '（局長）' : '') + '</option>').join('') + '</optgroup>';
@@ -1205,7 +1286,11 @@ function fillOwners() {
   const v = $('#fOwner').value;
   $('#fOwner').innerHTML = ownerOptions(editing ? editing.owner : '', editing ? '（担当なし）' : '局長におまかせ', curUnit());
   $('#fOwner').value = v;
-  if ($('#fOwner').value !== v) $('#fOwner').value = '';
+  if ($('#fOwner').value !== v) {
+    // 部局を変えたとき、「〇〇みんな」は新しい部局の「みんな」に付けかえる（空にしない）
+    const g = v.endsWith(GROUP) ? $('#fOwner').querySelector('option[value$="' + GROUP + '"]') : null;
+    $('#fOwner').value = g ? g.value : '';
+  }
 }
 function onPlaceChange(what) {
   if (what === 'dept' || what === 'unit') fillCats(editing ? curCat() : '');
@@ -1337,7 +1422,8 @@ function openAdd(due, parent, preset) {
   $('#fTask').value = '';
   $('#fDue').value = due || '';
   const team = board !== 'club';
-  const sd = scopeDept();
+  // わたしタブから足すときは、選んでいる部局に
+  const sd = view === 'mine' ? (mineUnit() === MINE_ALL ? null : mineUnit()) : scopeDept();
   const dept = parent ? parent.dept : team ? board : preset ? preset.unit : sd || (D.depts.includes(D.me.dept) ? D.me.dept : D.depts[0]);
   // 個人のタスクは今年の台帳にだけ。子は親と同じ（個人の親には個人の子、部の親には部の子）
   const draftAdd = parent ? !!parent.draft : which === 'draft';
@@ -1360,7 +1446,7 @@ function openAdd(due, parent, preset) {
   $('#fOwner').disabled = false;
   $('#rowYearly').hidden = false;
   $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ', curUnit());
-  $('#fOwner').value = parent ? '' : scope === 'me' ? D.me.name : '';
+  $('#fOwner').value = parent ? '' : scope === 'me' || view === 'mine' ? D.me.name : '';
   $('#fMemo').value = '';
   $('#fMemoLabel').textContent = 'メモ（任意）';
   $('#rowMemo').hidden = false;
@@ -1381,7 +1467,7 @@ function syncPersonal() {
   if (editing) return;
   const p = $('#fDept').value === PERSONAL;
   if (p) $('#fOwner').innerHTML = '<option value="">' + esc(D.me.name) + '（自分）</option>';
-  else if ($('#fOwner').disabled) { $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ', curUnit()); $('#fOwner').value = scope === 'me' && !addParent ? D.me.name : ''; }
+  else if ($('#fOwner').disabled) { $('#fOwner').innerHTML = ownerOptions('', '局長におまかせ', curUnit()); $('#fOwner').value = (scope === 'me' || view === 'mine') && !addParent ? D.me.name : ''; }
   $('#fOwner').disabled = p;
   $('#rowYearly').hidden = p;
   if (p) $('#fYearly').checked = false;
@@ -1527,6 +1613,14 @@ document.addEventListener('click', (e) => {
     if (loadSel) $('#loadDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     return;
   }
+  const tk = e.target.closest('[data-take]');
+  if (tk) {
+    const t = allTasks().find((x) => x.id === tk.dataset.take);
+    if (!t) return;
+    tk.disabled = true;
+    change(t.id, { owner: D.me.name }, '「' + t.task.slice(0, 16) + '」を自分の担当にしました');
+    return;
+  }
   const item = e.target.closest('[data-id]');
   if (item && !e.target.closest('.tick')) {
     if ($('#dayDlg').open) $('#dayDlg').close();
@@ -1547,6 +1641,7 @@ document.addEventListener('change', (e) => {
 $('#boards').addEventListener('click', (e) => { const b = e.target.closest('[data-board]'); if (b) setBoard(b.dataset.board); });
 $('#fScope').onchange = (e) => { scope = e.target.value; store.set('scope', scope); loadSel = null; render(); };
 $('#fRange').onchange = (e) => { range = e.target.value; store.set('range', range); render(); };
+$('#mineUnit').onchange = (e) => { store.set('mineUnit:' + board, e.target.value); renderMine(); };
 $('#reload').onclick = () => load().then(() => toast('最新にしました'));
 const step = (n) => {
   if (mode === 'month') month = new Date(month.getFullYear(), month.getMonth() + n, 1, 12);
@@ -1696,6 +1791,12 @@ const demo = (() => {
     mk('広報', '大会結果をインスタに載せる', -3, '', { status: '済' }),
     mk('常務', '城西大会の役員の割り振り', null, ''),
     mk('主将局', '部の共有アカウントのパスワード保管者を決める', null, '青山'),
+    // 主将局の4人でやると決めたもの（担当「主将局みんな」）と、まだ担当が決まっていないもの
+    mk('主将局', '来年度の年間予定を4人で見直す', 2, '主将局みんな'),
+    mk('主将局', '納会の出し物を決める', 8, '主将局みんな', { cat: '納会' }),
+    mk('主将局', '指導者への年末のご挨拶を準備', 14, '', { cat: '指導者との連絡' }),
+    mk('主将局', '1年生と面談して近況を聞く（後半）', 18, ''),
+    mk('主将局', '部室の鍵の当番表を作り直す', -1, ''),
     // 新歓首脳のボード（青山・石田・北村・坂井にだけ見える）
     mk('新歓首脳', '【女子オリ】オリター・構内新歓の要員を決めて申し込む', 2, '北村', { status: '進行中', unit: '新入生係', cat: 'オリ・構内新歓' }),
     mk('新歓首脳', '【全体】新歓の目的・コンセプトを決める（首脳mtg）', 5, '石田', { unit: '新歓首脳', cat: '全体の方針' }),
@@ -1712,6 +1813,8 @@ const demo = (() => {
     mk('新歓首脳', 'ビラ配りのシフトを組む', 45, '北村', { unit: 'ビラ', cat: '配る' }),
     mk('新歓首脳', '投稿カレンダー（3〜4月）を作る', 30, '石田', { unit: 'SNS', cat: '投稿' }),
     mk('新歓首脳', 'インスタのハイライトを整理', 25, '坂井', { unit: 'SNS' }),
+    mk('新歓首脳', 'SNSの投稿ルールを決める', 12, 'SNSみんな', { unit: 'SNS', cat: '投稿' }),
+    mk('新歓首脳', 'リール動画のネタを10個出す', 21, '', { unit: 'SNS', cat: '投稿' }),
     // 個人のタスク（石田さんにだけ見える）
     mk('個人', '道着をクリーニングに出す', 1, '石田', { kind: '今年だけ', source: 'タスク画面（石田）' }),
     mk('個人', '全日本の個人エントリーを考える', 10, '石田', { kind: '今年だけ', source: 'タスク画面（石田）', id: 'T0P3' }),
