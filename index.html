@@ -104,6 +104,9 @@ button { cursor: pointer; }
 .filters select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); max-width: 100%; }
 .filters label.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .filters .sp { flex: 1; }
+.filters .qbox { flex: 1 1 200px; min-width: 0; max-width: 320px; position: relative; display: flex; }
+.filters .qbox input { width: 100%; min-width: 0; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: inherit; font: inherit; }
+.qnote { color: var(--muted); font-size: 13px; margin: 14px 0 6px; }
 .iconbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 10px; font-size: 13px; color: var(--muted); }
 
 .demo {
@@ -409,6 +412,8 @@ fieldset { border: 0; padding: 0; margin: 0; }
         <button type="button" id="wDraft" aria-pressed="false">来年の下書き</button>
       </div>
       <span class="sp"></span>
+      <div class="qbox" role="search"><label for="q" class="sr">タスクを探す</label>
+        <input type="search" id="q" placeholder="🔍 タスクを探す" title="タスク名・メモ・担当・カテゴリ・番号で探せます" autocomplete="off" enterkeyhint="search"></div>
       <button class="iconbtn" id="reload" type="button">最新にする</button>
     </div>
   </div>
@@ -417,6 +422,11 @@ fieldset { border: 0; padding: 0; margin: 0; }
 <div class="demo-wrap"><div class="draftnote" id="draftNote" hidden></div></div>
 
 <main class="wrap">
+  <section id="v-search" aria-live="polite" hidden>
+    <p class="lead" id="qLead"></p>
+    <div id="qBody"></div>
+  </section>
+
   <section id="v-mine" class="mine" aria-labelledby="tab-mine" hidden>
     <p class="lead" id="mineLead"></p>
     <div class="sum" id="mineSum"></div>
@@ -823,9 +833,11 @@ function render() {
   if (myTeams().length && !$('#boards').contains(document.activeElement)) fillBoards();  // 件数の印を今の中身に合わせる
   const VIEWS = ['mine', 'cal', 'load', 'meet', 'par'];
   if (!VIEWS.includes(view)) view = 'mine';
+  const searching = !!qWords().length;
+  $('#v-search').hidden = !searching;
   VIEWS.forEach((v) => {
-    $('#v-' + v).hidden = v !== view;
-    $('#tab-' + v).setAttribute('aria-selected', String(v === view));
+    $('#v-' + v).hidden = searching || v !== view;
+    $('#tab-' + v).setAttribute('aria-selected', String(!searching && v === view));
   });
   // わたし：上の「表示する範囲」の代わりに、部局を選ぶ
   $('#fScope').hidden = view === 'mine';
@@ -840,6 +852,7 @@ function render() {
     $('#draftNote').textContent = '来年の下書きを見ています（' + D.draft.length + '件）。' +
       (D.switchDate ? md(D.switchDate) + 'の納会のあと' : '納会のあと') + 'に本番の台帳になります。ここで期限や担当を直しても、毎朝のメールはまだ届きません。';
   }
+  if (searching) { renderSearch(); return; }
   if (view === 'mine') renderMine();
   if (view === 'cal') renderCal();
   if (view === 'load') renderLoad();
@@ -1101,14 +1114,16 @@ function parGroup(p) {
 // 終わっていない親が先、その中は期限（子のいちばん近い期限）の近い順
 const sortGroups = (gs) => gs.sort((a, b) => (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || a.key.localeCompare(b.key) || cmp(a.p, b.p));
 // 親1つ分のかたまり（親タスクのタブと会議で使う）。list＝出す子、note.empty＝子を出さないときの文、note.text＝下に添える文
-function parGroupHtml(g, list, note) {
+// pkey：フォルダの中で出すときの、開け閉めを覚える名前（フォルダの中は最初は閉じる）
+function parGroupHtml(g, list, note, pkey) {
   const p = g.p;
-  const open = p.id in parOpen ? parOpen[p.id] : !g.finished;
+  const key = pkey || p.id;
+  const open = key in parOpen ? parOpen[key] : pkey ? false : !g.finished;
   const pct = g.valid.length ? Math.round(g.done / g.valid.length * 100) : 0;
   const bid = 'pb-' + esc(p.id);
   return '<div class="pgroup' + (g.finished ? ' pdone' : '') + '">' +
     '<div class="phead">' +
-    '<button type="button" class="ptog" data-ptog="' + esc(p.id) + '" aria-expanded="' + open + '" aria-controls="' + bid + '" aria-label="' + esc(p.task) + ' の子を' + (open ? '閉じる' : '開く') + '">' + (open ? '▼' : '▶') + '</button>' +
+    '<button type="button" class="ptog" data-ptog="' + esc(key) + '" aria-expanded="' + open + '" aria-controls="' + bid + '" aria-label="' + esc(p.task) + ' の子を' + (open ? '閉じる' : '開く') + '">' + (open ? '▼' : '▶') + '</button>' +
     '<button type="button" class="pmain" data-id="' + esc(p.id) + '">' +
     '<span class="ptitle">' + dotHtml(p.dept) + '<span>' + esc(p.task) + '</span>' + (p.dept === PERSONAL ? '<span class="badge mine">自分だけ</span>' : '') +
     (p.to ? '<span class="badge ext">提出物</span>' : '') + (['済', '不要'].includes(p.status) ? '<span class="badge kids">' + esc(p.status) + '</span>' : '') + '</span>' +
@@ -1123,7 +1138,7 @@ function parGroupHtml(g, list, note) {
 
 // フォルダの形（部局 → カテゴリ → 親タスク（子つき）／親のないタスク）を作る。フォルダのタブと会議で使う
 // all：対象のタスク／solo(t)：親のないタスクを出すか／grp(g)：親のまとまりを出すか／kid(k)：親の中に出す子
-// o.pre：開け閉めを覚える名前の頭／o.openCat：カテゴリを最初から開くか／o.add：「＋ ここに足す」を出すか
+// o.pre：開け閉めを覚える名前の頭（部局・カテゴリ・親タスクは、最初はすべて閉じる）／o.add：「＋ ここに足す」を出すか
 function foldHtml(all, solo, grp, kid, o) {
   const units = unitsFor(board).slice();
   all.forEach((t) => { const u = unitOf(t); if (!units.includes(u)) units.push(u); });  // 一覧にない部局・部局なしは最後に
@@ -1146,14 +1161,14 @@ function foldHtml(all, solo, grp, kid, o) {
       const act = list.filter(isActive).length, late = list.filter(isLate).length;
       uAct += act; uLate += late;
       const key = o.pre + 'c:' + board + '/' + u + '/' + c;
-      const open = key in foldOpen ? foldOpen[key] : o.openCat || cats.length === 1;
+      const open = key in foldOpen ? foldOpen[key] : false;  // 最初は閉じる（2026-11-25〜）
       return '<details class="fold cat" data-fold="' + esc(key) + '"' + (open ? ' open' : '') + '><summary><span class="fic" aria-hidden="true">📁</span><span>' + esc(c || NOCAT) + '</span>' +
         '<span class="fc">' + (groups.length ? '親 ' + groups.length + '・' : '') + 'まだ ' + act + '件' + (late ? '・<span class="late">遅れ ' + late + '</span>' : '') + '</span></summary>' +
         '<div class="fbox">' +
         groups.map((g) => {
           const ks2 = g.kids.filter(kid).sort(byDue);
           const hid = g.kids.length - ks2.length;
-          return parGroupHtml(g, ks2, { empty: o.kidEmpty, text: hid ? o.kidHid(hid) : '' });
+          return parGroupHtml(g, ks2, { empty: o.kidEmpty, text: hid ? o.kidHid(hid) : '' }, o.pre + 'p:' + g.p.id);
         }).join('') +
         (solos.length ? '<div class="fsolo">' + (groups.length ? '<p>親のないタスク</p>' : '') + rowsHtml(solos) + '</div>' : '') +
         (o.add && (which === 'live' || u !== PERSONAL) ? '<button type="button" class="padd" data-addcat="' + esc(JSON.stringify([u, c])) + '" aria-label="' + esc(unitName(u) + ' › ' + (c || NOCAT)) + ' にタスクを足す">＋ ここに足す</button>' : '') +
@@ -1161,7 +1176,7 @@ function foldHtml(all, solo, grp, kid, o) {
     }).join('');
     if (!body) return '';
     const key = o.pre + 'u:' + board + '/' + u;
-    const open = key in foldOpen ? foldOpen[key] : true;
+    const open = key in foldOpen ? foldOpen[key] : false;  // 最初は閉じる（2026-11-25〜）
     return '<details class="fold" data-fold="' + esc(key) + '"' + (open ? ' open' : '') + '><summary>' + (board === 'club' ? dotHtml(u) : '') + '<span>' + esc(unitName(u)) + '</span>' +
       '<span class="fc">まだ ' + uAct + '件' + (uLate ? '・<span class="late">遅れ ' + uLate + '</span>' : '') + '</span></summary><div class="fbox">' + body + '</div></details>';
   }).join('');
@@ -1171,7 +1186,7 @@ function foldHtml(all, solo, grp, kid, o) {
 const foldOpen = {};  // 開け閉めしたものだけ覚える（最新にしても戻らないように）
 function renderPar() {
   const html = foldHtml(pool(), shown, (g) => [g.p].concat(g.kids).some(shown), rangeOk, {
-    pre: '', openCat: !!scopeDept(), add: true,
+    pre: '', add: true,
     kidEmpty: '今の「出すタスク」で出る子はありません', kidHid: (n) => 'ほかに済・不要の子 ' + n + '件（上の「出すタスク」で出せます）',
   });
   $('#parLead').textContent = '部局 → カテゴリ（フォルダ）→ 親タスク → タスクの順にまとめています。上の「表示する範囲」「出すタスク」に合わせています。カテゴリは、タスクを足すときに作れます。';
@@ -1183,11 +1198,35 @@ function meetFoldHtml(dept, n) {
   const soon = (t) => isActive(t) && (t.due ? inSpan(n(t)) : !meetSpan);
   const all = D.tasks.filter((t) => inBoard(t) && t.dept !== PERSONAL && (!dept || unitOf(t) === dept));
   const h = foldHtml(all, soon, (g) => !g.finished && [g.p].concat(g.kids).some(soon), isActive, {
-    pre: 'm', openCat: true, add: false,
+    pre: 'm', add: false,
     kidEmpty: '子はすべて済・不要です。親を「済」にしてください', kidHid: (k) => '済・不要の子 ' + k + '件',
   });
   return '<p class="lead">' + esc(spanIn()) + 'に期限がある・遅れている、まだ済んでいないタスクを、部局 → カテゴリ → 親タスクでまとめています。期限のないものは「先の範囲」を「すべて」にすると出ます。</p>' +
     (h || '<div class="empty">この範囲のタスクはありません</div>');
+}
+
+/* ---------- 探す ---------- */
+// 全角・半角、大文字・小文字、ひらがな・カタカナの違いを無視して比べる
+const normQ = (x) => String(x || '').normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+// 空白で区切った言葉が、すべて入っているものを出す
+const qWords = () => normQ($('#q').value).split(/\s+/).filter(Boolean);
+function qHit(t, ws) {
+  const p = parentOf(t);
+  const hay = normQ([t.id, t.task, t.memo, t.owner, t.cat, t.dept, placeText(t), p ? p.task : ''].join(' '));
+  return ws.every((w) => hay.includes(w));
+}
+// 今見ているボード（部活タスク／チーム）と年（今年／来年の下書き）の中から探す。済・不要は下にまとめる
+function renderSearch() {
+  const ws = qWords();
+  const hits = pool().filter((t) => qHit(t, ws));
+  const act = hits.filter((t) => !['済', '不要'].includes(t.status)).sort(byDue);
+  const fin = hits.filter((t) => ['済', '不要'].includes(t.status)).sort((a, b) => (b.due || '').localeCompare(a.due || '') || cmp(a, b));
+  const where = (myTeams().length ? '「' + boardName() + '」' : '') + (which === 'draft' ? '来年の下書き' : '');
+  $('#qLead').textContent = '「' + $('#q').value.trim() + '」で探しました：' + hits.length + '件' + (where ? '（' + where + 'の中）' : '') +
+    '。タスク名・メモ・担当・カテゴリ・番号・親タスクの名前から探します。押すと直せます。元の画面に戻るには、検索の文字を消してください。';
+  $('#qBody').innerHTML = !hits.length ? '<div class="empty">見つかりませんでした。言葉を短くするか、別の言い方で探してください。</div>' :
+    (act.length ? rowsHtml(act) : '<div class="empty">まだのタスクはありません</div>') +
+    (fin.length ? '<p class="qnote">済・不要（' + fin.length + '件）</p>' + rowsHtml(fin) : '');
 }
 
 /* ---------- 直す・足す ---------- */
@@ -1591,7 +1630,7 @@ document.addEventListener('click', (e) => {
   const ac = e.target.closest('[data-addcat]');
   if (ac) { const [u, c] = JSON.parse(ac.dataset.addcat); openAdd('', null, { unit: u, cat: c }); return; }
   const ak = e.target.closest('[data-addkid]');
-  if (ak) { const p = allTasks().find((x) => x.id === ak.dataset.addkid); if (p) { parOpen[p.id] = true; openAdd(p.due, p); } return; }
+  if (ak) { const p = allTasks().find((x) => x.id === ak.dataset.addkid); if (p) { parOpen[p.id] = parOpen['p:' + p.id] = parOpen['mp:' + p.id] = true; openAdd(p.due, p); } return; }
   const chip = e.target.closest('#meetSum a');
   if (chip && (meetMode === 'par' || meetMode === 'fold')) {
     e.preventDefault();
@@ -1603,7 +1642,7 @@ document.addEventListener('click', (e) => {
   const mm = e.target.closest('[data-mm]');
   if (mm) { meetMode = mm.dataset.mm; store.set('meetMode2', meetMode); renderMeet(); return; }
   const tab = e.target.closest('[data-view]');
-  if (tab) { view = tab.dataset.view; store.set('view', view); render(); window.scrollTo(0, 0); return; }
+  if (tab) { $('#q').value = ''; view = tab.dataset.view; store.set('view', view); render(); window.scrollTo(0, 0); return; }
   const open = e.target.closest('[data-open-day]');
   if (open) { openDay(open.dataset.openDay); return; }
   const cell = e.target.closest('[data-cell]');
@@ -1642,6 +1681,10 @@ $('#boards').addEventListener('click', (e) => { const b = e.target.closest('[dat
 $('#fScope').onchange = (e) => { scope = e.target.value; store.set('scope', scope); loadSel = null; render(); };
 $('#fRange').onchange = (e) => { range = e.target.value; store.set('range', range); render(); };
 $('#mineUnit').onchange = (e) => { store.set('mineUnit:' + board, e.target.value); renderMine(); };
+// 探す：打つたびに出し直す。Esc で消す
+let qWasOn = false;
+$('#q').addEventListener('input', () => { const on = !!qWords().length; render(); if (on !== qWasOn) window.scrollTo(0, 0); qWasOn = on; });
+$('#q').addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target.value) { e.stopPropagation(); e.target.value = ''; qWasOn = false; render(); } });
 $('#reload').onclick = () => load().then(() => toast('最新にしました'));
 const step = (n) => {
   if (mode === 'month') month = new Date(month.getFullYear(), month.getMonth() + n, 1, 12);
