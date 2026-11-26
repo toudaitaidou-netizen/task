@@ -369,6 +369,120 @@ fieldset { border: 0; padding: 0; margin: 0; }
 }
 .toast button { border: 0; background: transparent; color: var(--accent-soft); font-weight: 700; text-decoration: underline; padding: 0; }
 
+/* 個人年間目標（目標のタブ）：理想の姿 → 目的 → 年間目標 → 時期・大会 → 月の行動。下から上へ一本でつながる木 */
+.gbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.gbar select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 15px; max-width: 100%; }
+.gbar .seg2 { margin-left: 0; }
+.gwhoh { margin: 0 0 10px; font-size: 20px; font-family: var(--font-mark); letter-spacing: .03em; }
+.gwhoh small { font-family: var(--font-ui); font-size: 13px; color: var(--muted); margin-left: 8px; font-weight: 500; }
+.gtree { position: relative; padding-left: 40px; }
+.garrow { position: absolute; left: 0; top: 0; bottom: 0; width: 28px; display: flex; flex-direction: column; align-items: center; }
+.garrow::before { content: ""; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 16px solid var(--accent-soft); }
+.garrow span { flex: 1; width: 16px; background: var(--accent-soft); color: var(--accent); writing-mode: vertical-rl; font-size: 12px; font-weight: 700; letter-spacing: .15em; display: flex; align-items: center; justify-content: center; padding: 8px 0; border-radius: 0 0 4px 4px; }
+.gideal { background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: 0; text-align: center; position: relative; display: flex; }
+.gideal .gmain { text-align: center; padding: 12px 16px; }
+.gideal .gb { font-size: 16px; font-weight: 700; }
+.gcols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px; position: relative; }
+.gcols::before { content: ""; position: absolute; top: -14px; left: 25%; right: 25%; height: 14px; border: 2px solid var(--accent); border-bottom: 0; border-radius: 8px 8px 0 0; }
+.gcols::after { content: ""; position: absolute; top: -28px; left: 50%; height: 14px; border-left: 2px solid var(--accent); }
+.gcol { background: var(--sunk); border-radius: 12px; padding: 10px; min-width: 0; border-top: 4px solid var(--c0); }
+.gcol.f1 { border-top-color: var(--c2); }
+.gcol > h3 { margin: 2px 4px 10px; font-size: 16px; font-family: var(--font-mark); letter-spacing: .04em; }
+.gn { margin-top: 8px; }
+.gn:first-child { margin-top: 0; }
+.gk { margin: 6px 0 0 10px; padding-left: 10px; border-left: 2px solid var(--line); }
+.gc { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; display: flex; align-items: stretch; min-width: 0; }
+.gmain { flex: 1; min-width: 0; border: 0; background: transparent; text-align: left; padding: 8px 10px; display: block; border-radius: 8px; }
+.gl { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.gl.l年間 { background: color-mix(in srgb, var(--c2) 16%, transparent); color: var(--c2); }
+.gl.l時期 { background: color-mix(in srgb, var(--c3) 16%, transparent); color: var(--c3); }
+.gl.l月 { background: color-mix(in srgb, var(--c4) 16%, transparent); color: var(--c4); }
+.gt { font-weight: 700; margin-left: 6px; }
+.gb { display: block; margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.grv { display: block; margin: 4px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.grv:empty { display: none; }
+.grv.miss { color: var(--late); font-weight: 700; }
+.gcm { flex: none; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12.5px; padding: 0 9px; min-width: 46px; border-radius: 0 8px 8px 0; }
+.gcm.has { color: var(--accent); font-weight: 700; }
+.gadd { margin: 6px 0 0; border: 1px dashed var(--muted); background: transparent; color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: 12.5px; }
+.gadd:hover { color: var(--accent); border-color: var(--accent); }
+.gadds { display: flex; flex-wrap: wrap; gap: 6px; }
+.gempty { color: var(--muted); font-size: 13px; padding: 6px 4px; margin: 0; }
+.gnow { outline: 2px solid var(--late); outline-offset: 2px; }
+/* みんなの一覧 */
+.gppl { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin: 0 0 18px; }
+.gp { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+.gp b { font-size: 16px; }
+.gp .gps { font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.gp .gps .late { color: var(--late); font-weight: 700; }
+.gp .gps .cm { color: var(--accent); font-weight: 700; }
+.gp.me { border-color: var(--accent); border-width: 2px; }
+.gkih { margin: 14px 0 8px; font-size: 15px; color: var(--muted); }
+/* 月ごと */
+.gmonths { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+.gmonths button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-size: 13px; min-width: 46px; }
+.gmonths button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.gmonths .dotm { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--late); margin-left: 3px; vertical-align: 2px; }
+.gmrow { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.gchain { font-size: 12px; color: var(--muted); margin: 0 0 4px; overflow-wrap: anywhere; }
+.gmrow textarea { width: 100%; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 16px; }
+.gmact { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.gmact .btn { padding: 5px 14px; font-size: 14px; }
+/* 窓 */
+.gchips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.gchips button { border: 1px solid var(--line); background: var(--sunk); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; }
+.gask { margin: 0; padding: 8px 10px; background: var(--accent-soft); border-radius: 8px; font-size: 13px; line-height: 1.6; }
+.gask:empty { display: none; }
+.gfield { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.fbody .gfield label { margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; font-size: 14px; color: var(--ink); cursor: pointer; }
+.gfield label + label { border-left: 1px solid var(--line); }
+.gvbody { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15.5px; margin: 0; }
+.gvsub { font-size: 12.5px; color: var(--muted); margin: 0; overflow-wrap: anywhere; }
+.gvsub:empty { display: none; }
+.gcoms { display: flex; flex-direction: column; gap: 8px; }
+.gcoms:empty { display: none; }
+.gcom { background: var(--sunk); border-radius: 10px; padding: 8px 10px; }
+.gcom.own { background: var(--accent-soft); }
+.gcom .gch { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; color: var(--muted); }
+.gcom .gch b { color: var(--ink); font-size: 13.5px; }
+.gcom p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gtch { display: inline-block; font-size: 10.5px; border: 1px solid var(--c1); color: var(--c1); border-radius: 4px; padding: 0 4px; }
+body.teacher .tabs, body.teacher .filters > :not(#reload):not(.sp), body.teacher .fab, body.teacher #boards { display: none !important; }
+/* 振り返り会（月1の対面・小グループ）：1人1枚のカードに、年間目標・その月の行動と振り返り・次の月の行動 */
+.gmeetbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+.gmeetbar select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 15px; }
+.gmeetbar .seg2 { margin-left: 0; }
+.gmeet { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.gmeet.one { grid-template-columns: 1fr; max-width: 820px; margin: 0 auto; }
+.gpc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.gpc h3 { margin: 0; font-size: 18px; font-family: var(--font-mark); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.gpc h3 small { font-family: var(--font-ui); font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.gpc h3 .gopen { margin-left: auto; font-family: var(--font-ui); font-size: 12.5px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 2px 8px; color: var(--muted); }
+.gpc .gideal1 { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.gpc h4 { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); font-weight: 700; letter-spacing: .05em; }
+.gpc ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.gpc li button { width: 100%; text-align: left; border: 0; border-left: 3px solid var(--line); background: var(--sunk); border-radius: 0 6px 6px 0; padding: 5px 8px; overflow-wrap: anywhere; }
+.gpc li.f0 button { border-left-color: var(--c0); }
+.gpc li.f1 button { border-left-color: var(--c2); }
+.gpc li .grv { margin-top: 2px; }
+.gpc li .gcmn { color: var(--accent); font-size: 12px; font-weight: 700; margin-left: 4px; }
+.gpc .gnone { color: var(--muted); font-size: 13px; margin: 0; }
+.gsolo { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 12px 0; }
+.gsolo .btn { padding: 8px 18px; }
+body.big .gpc { font-size: 18px; }
+body.big .gpc h3 { font-size: 24px; }
+body.big .gpc .gideal1, body.big .gpc li .grv { font-size: 16px; }
+@media (max-width: 760px) {
+  .gtree { padding-left: 0; }
+  .garrow { display: none; }
+  .gcols { grid-template-columns: 1fr; margin-top: 18px; }
+  .gcols::before { display: none; }
+  .gcols::after { top: -18px; height: 18px; }
+}
+@media (max-width: 400px) {
+  .tabs button { font-size: 12px; }
+}
+
 @media (max-width: 640px) {
   .tabs { margin-left: 0; width: 100%; }
   .tabs button { flex: 1; padding: 6px 2px; font-size: 13px; white-space: nowrap; }  /* タブ5つでも1行に */
@@ -395,6 +509,7 @@ fieldset { border: 0; padding: 0; margin: 0; }
       <button role="tab" id="tab-load" data-view="load" aria-selected="false">混み具合</button>
       <button role="tab" id="tab-meet" data-view="meet" aria-selected="false">会議</button>
       <button role="tab" id="tab-par" data-view="par" aria-selected="false">フォルダ</button>
+      <button role="tab" id="tab-goal" data-view="goal" aria-selected="false">目標</button>
     </nav>
     <div class="filters">
       <label for="fScope" class="sr">表示する範囲</label>
@@ -484,6 +599,20 @@ fieldset { border: 0; padding: 0; margin: 0; }
     <p class="lead" id="parLead"></p>
     <div id="parBody"></div>
   </section>
+
+  <section id="v-goal" class="goal" aria-labelledby="tab-goal" hidden>
+    <div class="gbar">
+      <label for="gWho" class="sr">だれの目標を見るか</label>
+      <select id="gWho"></select>
+      <div class="seg2" id="gModeSeg" role="group" aria-label="目標の見方">
+        <button type="button" data-gmode="tree" aria-pressed="true">つながり</button>
+        <button type="button" data-gmode="month" aria-pressed="false">月ごと（振り返り）</button>
+      </div>
+      <label for="gYear" class="sr">年</label>
+      <select id="gYear" hidden></select>
+    </div>
+    <div id="gBody"><div class="empty">読み込み中…</div></div>
+  </section>
 </main>
 
 <button class="fab" id="fab" type="button">＋ 追加</button>
@@ -544,6 +673,43 @@ fieldset { border: 0; padding: 0; margin: 0; }
     <header><h2 id="dayTitle" tabindex="-1"></h2><button type="button" class="x" id="dayClose" aria-label="閉じる">×</button></header>
     <div class="daylist" id="dayBody"></div>
     <footer><button type="button" class="btn primary" id="dayAdd">この日に追加</button></footer>
+  </div>
+</dialog>
+
+<!-- 個人年間目標：書く・直す -->
+<dialog id="gDlg" aria-labelledby="gTitle">
+  <form class="dlg" id="gForm" novalidate>
+    <header><h2 id="gTitle" tabindex="-1">目標</h2><button type="button" class="x" id="gClose" aria-label="閉じる">×</button></header>
+    <div class="fbody">
+      <p class="gvsub" id="gUp"></p>
+      <div id="gFieldRow"><label>どちらの目的ですか</label>
+        <div class="gfield"><label><input type="radio" name="gf" value="躰道の追究" checked><span>躰道の追究</span></label><label><input type="radio" name="gf" value="人間的成長"><span>人間的成長</span></label></div></div>
+      <div id="gEvRow"><label for="gEv">時期・大会の名前</label><input type="text" id="gEv" maxlength="30" autocomplete="off" placeholder="例：銀杏杯">
+        <div class="gchips" id="gEvChips"></div></div>
+      <div id="gMoRow"><label for="gMo">月</label><select id="gMo"></select></div>
+      <p class="gask" id="gAsk"></p>
+      <div><label for="gText" id="gTextLabel">中身</label><textarea id="gText" rows="4" maxlength="400"></textarea></div>
+      <div id="gRevRow"><label for="gRev">振り返り（その月が終わったら）</label><textarea id="gRev" rows="3" maxlength="400" placeholder="できたこと・できなかったこと・来月に生かすこと"></textarea></div>
+      <p class="msg" id="gMsg" role="alert"></p>
+    </div>
+    <footer><button type="button" class="btn danger" id="gDel" hidden>削除</button><button type="button" class="btn" id="gCancel">やめる</button><button type="submit" class="btn primary" id="gSave">保存</button></footer>
+  </form>
+</dialog>
+
+<!-- 個人年間目標：見る・コメント -->
+<dialog id="gvDlg" aria-labelledby="gvTitle">
+  <div class="dlg">
+    <header><h2 id="gvTitle" tabindex="-1"></h2><button type="button" class="x" id="gvClose" aria-label="閉じる">×</button></header>
+    <div class="fbody">
+      <p class="gvsub" id="gvUp"></p>
+      <p class="gvbody" id="gvText"></p>
+      <p class="grv" id="gvRev"></p>
+      <div class="gcoms" id="gvComs"></div>
+      <div><label for="gvNew">コメント</label><textarea id="gvNew" rows="3" maxlength="500" placeholder="気づいたこと・応援・質問など"></textarea></div>
+      <p class="gvsub" id="gvTo"></p>
+      <p class="msg" id="gvMsg" role="alert"></p>
+    </div>
+    <footer><button type="button" class="btn" id="gvEdit" hidden>直す</button><button type="button" class="btn" id="gvCancel">閉じる</button><button type="button" class="btn primary" id="gvSend">コメントを送る</button></footer>
   </div>
 </dialog>
 
@@ -674,7 +840,9 @@ function useData(data) {
   today = pd(D.today);
   if (!month) month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
   if (!wk) wk = monday(today);
-  $('#who').textContent = D.me.name + ' さん（' + (D.me.dept || '部局なし') + '）';
+  $('#who').textContent = D.me.teacher ? D.me.name + '（指導者）' : D.me.name + ' さん（' + (D.me.dept || '部局なし') + '）';
+  document.body.classList.toggle('teacher', !!D.me.teacher);
+  if (D.me.teacher) { $('#brandName').textContent = '個人年間目標'; document.title = '個人年間目標'; }
   if (board !== 'club' && !myTeams().includes(board)) board = 'club';
   fillBoards();
   fillScope();
@@ -831,22 +999,28 @@ const rowsHtml = (list, ord) => '<div class="rows">' + list.map((t, i) => rowHtm
 function render() {
   if (!D) return;
   if (myTeams().length && !$('#boards').contains(document.activeElement)) fillBoards();  // 件数の印を今の中身に合わせる
-  const VIEWS = ['mine', 'cal', 'load', 'meet', 'par'];
+  const VIEWS = ['mine', 'cal', 'load', 'meet', 'par', 'goal'];
   if (!VIEWS.includes(view)) view = 'mine';
-  const searching = !!qWords().length;
+  if (D.me.teacher) view = 'goal';  // 指導者は目標だけ
+  const goal = view === 'goal';
+  const searching = !goal && !!qWords().length;
   $('#v-search').hidden = !searching;
   VIEWS.forEach((v) => {
     $('#v-' + v).hidden = searching || v !== view;
     $('#tab-' + v).setAttribute('aria-selected', String(!searching && v === view));
   });
   // わたし：上の「表示する範囲」の代わりに、部局を選ぶ
-  $('#fScope').hidden = view === 'mine';
+  $('#fScope').hidden = view === 'mine' || goal;
   $('#mineUnit').hidden = view !== 'mine';
+  // 目標のタブ：タスクの絞り込み・探す・＋追加は使わない
+  $('#fRange').hidden = goal;
+  document.querySelector('.qbox').hidden = goal;
+  $('#fab').hidden = goal || !!D.me.teacher;
   // 来年の下書き：ある間だけ切り替えを出す。会議はいつも今年
-  $('#whichSeg').hidden = !D.draft.length || view === 'meet';
+  $('#whichSeg').hidden = !D.draft.length || view === 'meet' || goal;
   $('#wLive').setAttribute('aria-pressed', String(which === 'live'));
   $('#wDraft').setAttribute('aria-pressed', String(which === 'draft'));
-  const showDraft = which === 'draft' && view !== 'meet';
+  const showDraft = which === 'draft' && view !== 'meet' && !goal;
   $('#draftNote').hidden = !showDraft;
   if (showDraft) {
     $('#draftNote').textContent = '来年の下書きを見ています（' + D.draft.length + '件）。' +
@@ -858,6 +1032,7 @@ function render() {
   if (view === 'load') renderLoad();
   if (view === 'meet') renderMeet();
   if (view === 'par') renderPar();
+  if (goal) renderGoal();
 }
 
 // わたし：部局を1つ選び、①自分の担当 ②その部局の「みんな」 ③担当なし（自分がやるかもしれないもの）を期限の近い順に出す
@@ -1685,7 +1860,7 @@ $('#mineUnit').onchange = (e) => { store.set('mineUnit:' + board, e.target.value
 let qWasOn = false;
 $('#q').addEventListener('input', () => { const on = !!qWords().length; render(); if (on !== qWasOn) window.scrollTo(0, 0); qWasOn = on; });
 $('#q').addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target.value) { e.stopPropagation(); e.target.value = ''; qWasOn = false; render(); } });
-$('#reload').onclick = () => load().then(() => toast('最新にしました'));
+$('#reload').onclick = () => load().then(() => (G ? loadGoals() : null)).then(() => toast('最新にしました'));
 const step = (n) => {
   if (mode === 'month') month = new Date(month.getFullYear(), month.getMonth() + n, 1, 12);
   else wk = add(wk, 28 * n);
@@ -1778,11 +1953,465 @@ document.addEventListener('drop', (e) => {
 });
 
 // ほかの人の変更を取り込む：画面に戻ってきたとき・2分ごと（入力中は待つ）
-const busy = () => $('#dlg').open || $('#dayDlg').open || $('#delDlg').open;
+const busy = () => $('#dlg').open || $('#dayDlg').open || $('#delDlg').open || $('#gDlg').open || $('#gvDlg').open;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - lastLoad > 60000 && !busy()) load(true);
 });
 setInterval(() => { if (GAS && document.visibilityState === 'visible' && !busy()) load(true); }, 120000);
+
+/* ---------- 個人年間目標（目標のタブ） ---------- */
+// 1人ずつ：理想の姿 → 目的（躰道の追究／人間的成長）→ 年間目標 → 時期・大会の目標 → 月の行動（＋振り返り）
+// 全員が全員分を見られる。書けるのは本人の分だけ。コメントはだれでも（指導者も）。サーバーは Goals.gs
+let G = null;          // goalData の中身
+let gLoading = null;
+let gWho = null;       // 見ている人（null＝みんなの一覧）
+let gWhoSet = false;
+let gMode = store.get('gMode', 'tree');
+if (!['tree', 'month'].includes(gMode)) gMode = 'tree';
+let gMonth = 0;        // 月ごとで見ている月（1〜12）
+let gEditing = null;   // 直している目標（足すときは null）
+let gNew = null;       // 足すときの {level, parent, field}
+let gViewing = null;   // 見ている（コメントの窓の）目標
+let gDelArm = false;
+let gFocus = '';       // メールから来たときに目立たせる目標
+const G_FIELDS = ['躰道の追究', '人間的成長'];
+const gLabel = (lv) => ({ 理想: '理想の姿', 目的: '目的', 年間: (G ? G.year : '') + '年の目標', 時期: '時期・大会の目標', 月: '月の行動' }[lv] || lv);
+const G_HINT = {
+  理想: '将来目指したい理想の人間像はどんな姿ですか。なりたい自分を大きく描いてください。',
+  目的: 'この部に所属する目的は何ですか。4年間で何を成し遂げたいか、理想に近づくために人としてどうなりたいか、周りにとってどんな存在でありたいか。',
+  年間: '目的を達成するために、この1年で達成したい目標は何ですか。',
+  時期: '年間目標を念頭に、時期・大会ごとの目標を立てましょう。',
+  月: 'この月にやること（行動）。年間目標・時期の目標から逆算して書きます。全部の月を埋めなくて大丈夫です。最後の「1年後」には、1年たったときにどうなっていたいかを。月が終わったら振り返りも。',
+};
+// 学年ごとの時期・大会（2026年のフォーマットより）。学年は期から出す（2027年の24期＝学肆）
+const G_EVENTS = {
+  4: ['新体制の立ち上げ', '後輩の審査', '新歓期間', '銀杏杯', '創玄杯', '城西大会', '城南大会', '学生大会', '全日本大会', '世界大会', '代替わりまで'],
+  3: ['黒帯審査', '新歓期間', '銀杏杯', '創玄杯', '城西大会', '城南大会', '学生大会', '全日本大会', '世界大会', '代替わりまで'],
+  2: ['運審査', '先輩になる準備', '学弐競技練', '新歓期間', '銀杏杯', '変審査', '創玄杯', '城西大会', '城南大会', '学生大会', '全日本大会', '世界大会', '代替わりまで'],
+  0: ['新歓期間', '銀杏杯', '創玄杯', '城西大会', '城南大会', '学生大会', '全日本大会', '世界大会', '代替わりまで'],
+};
+const G_TAIKAI = '大会結果として何を目指すか／法形：何の法形を通すか、何を表現するか／実戦：どんな実戦がしたいか（三つの先、八つの虚、使いたい技など）／そのためにいつまでに何に取り組むか';
+const G_ASK = {
+  新体制の立ち上げ: '部の方向性を示すためにどんな役割を果たすか／競技のチーム作り・関係性作りでどんな役割を果たすか',
+  後輩の審査: '心技体すべてにおいて学肆としてどう関わるか／自分の反省を後輩にどう還元するか',
+  黒帯審査: '捻体陰・実戦で何を表現したいか／審査までに直す課題は何か／求められる指導力をどう獲得するか／目指す黒帯の躰士の姿',
+  運審査: '運体陰・中段で何を表現したいか／飛び級するために直す課題は何か／求められる指導力をどう獲得するか',
+  変審査: '変体陰・下段で何を表現したいか／審査までに直す課題は何か／求められる指導力をどう獲得するか',
+  先輩になる準備: 'FB力をあげるにはどうするか／どんな稽古を作りたいか／どんな先輩になりたいか、そのために何をするか',
+  学弐競技練: '学弐転体陰・学弐実戦を何のために練習し、何を目指すか／（希望者）新歓攻防で何を目指すか',
+  新歓期間: '新入生にどんな実技を見せたいか／どんな部を見せたいか／新歓を通じて自分はどう成長したいか',
+  銀杏杯: G_TAIKAI, 創玄杯: G_TAIKAI, 城西大会: G_TAIKAI, 城南大会: G_TAIKAI, 学生大会: G_TAIKAI, 全日本大会: G_TAIKAI, 世界大会: G_TAIKAI,
+};
+const G_ASK_LAST = { 4: '部に何を残したいか／最も良い姿で卒部するために何をすべきか', 3: '次期執行代として何をすべきか', 2: '新たに何に挑戦するか' };
+const G_KANJI = ['', '壱', '弐', '参', '肆', '伍', '陸'];
+const gGradeName = (p) => (p && p.grade ? '学' + G_KANJI[p.grade] : '');
+const gPerson = (n) => (G ? G.people.find((p) => p.name === n) : null);
+const gIsMine = (g) => !!(G && !G.me.teacher && g.owner === G.me.name);
+// 「1年後」（1年たったときの姿）は月の段の13番目として扱う。月は埋まっていない月があってよい
+const G_LAST = '1年後';
+const gMonthNo = (g) => (g.title === G_LAST ? 13 : Number(String(g.title || '').replace('月', '')) || 0);
+const gMonName = (m) => (m === 13 ? G_LAST : m + '月');
+const gSort = (a, b) => (a.level === '月' && b.level === '月' ? gMonthNo(a) - gMonthNo(b) : 0) || (a.order || 0) - (b.order || 0) || a.id.localeCompare(b.id);
+const gKids = (id) => G.goals.filter((x) => x.parent === id).sort(gSort);
+const gComs = (id) => G.comments.filter((c) => c.goal === id).sort((a, b) => a.at - b.at);
+const gById = (id) => G.goals.find((x) => x.id === id);
+// 振り返りが「まだ」：その年の、もう終わった月で振り返りが空（今月の分はまだ書かなくてよい）
+function gReviewLate(g) {
+  if (g.level !== '月' || g.title === G_LAST || String(g.review || '').trim()) return false;
+  const [y, m] = D.today.split('-').map(Number);
+  return G.year < y || (G.year === y && gMonthNo(g) < m);
+}
+const gAt = (ms) => { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+// 上の段のつながり（「躰道の追究 › 目的… › 年間…」）
+function gChain(g) {
+  const out = [];
+  let p = g.parent ? gById(g.parent) : null;
+  while (p) { out.unshift((p.level === '時期' ? p.title + '：' : '') + String(p.body).slice(0, 24) + (String(p.body).length > 24 ? '…' : '')); p = p.parent ? gById(p.parent) : null; }
+  if (g.field) out.unshift(g.field);
+  return out.join(' › ');
+}
+
+async function loadGoals(year) {
+  if (gLoading) return gLoading;
+  gLoading = api('goalData', year || (G ? G.year : undefined)).then((data) => {
+    G = data;
+    if (!gWhoSet) { gWho = G.me.teacher ? null : G.me.name; gWhoSet = true; }
+    if (gWho && gWho !== G_MEET && !gPerson(gWho)) gWho = null;
+    if (!gMonth) { const [y, m] = D.today.split('-').map(Number); gMonth = G.year === y ? m : 1; }
+  }).catch((e) => { if (!G) $('#gBody').innerHTML = '<div class="err"><b>目標を開けませんでした。</b><br>' + esc(errMsg(e)) + '</div>'; else toast('最新にできませんでした：' + errMsg(e)); })
+    .finally(() => { gLoading = null; });
+  await gLoading;
+  if (view === 'goal') renderGoal();
+}
+
+function renderGoal() {
+  if (!G) { if (!gLoading) loadGoals(); return; }
+  // だれの目標か（期ごとにまとめる）
+  const byKi = {};
+  G.people.forEach((p) => { const k = p.ki ? p.ki.replace(/期$/, '') + '期' + (p.grade ? '（' + gGradeName(p) + '）' : '') : '期なし'; (byKi[k] = byKi[k] || []).push(p); });
+  const kis = Object.keys(byKi).sort();
+  $('#gWho').innerHTML = '<option value="">みんなの一覧</option><option value="' + G_MEET + '">振り返り会（グループ・月ごと）</option>' + kis.map((k) => '<optgroup label="' + esc(k) + '">' +
+    byKi[k].map((p) => '<option value="' + esc(p.name) + '">' + esc(p.name) + (p.name === G.me.name ? '（自分）' : '') + '</option>').join('') + '</optgroup>').join('');
+  $('#gWho').value = gWho || '';
+  $('#gModeSeg').hidden = !gWho || gWho === G_MEET;
+  document.querySelectorAll('[data-gmode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.gmode === gMode)));
+  $('#gYear').hidden = G.years.length < 2;
+  $('#gYear').innerHTML = G.years.map((y) => '<option value="' + y + '">' + y + '年</option>').join('');
+  $('#gYear').value = String(G.year);
+  if (!gWho) { $('#gBody').innerHTML = gListHtml(byKi, kis); return; }
+  if (gWho === G_MEET) { $('#gBody').innerHTML = gMeetHtml(); return; }
+  $('#gBody').innerHTML = gMode === 'month' ? gMonthHtml(gWho) : gTreeHtml(gWho);
+  if (gFocus) {
+    const el = document.querySelector('[data-gnode="' + CSS.escape(gFocus) + '"]');
+    if (el) { el.classList.add('gnow'); el.scrollIntoView({ block: 'center' }); }
+  }
+}
+
+// みんなの一覧：期ごとに、書いた量・振り返りまだ・コメントの数
+function gListHtml(byKi, kis) {
+  const lead = G.me.teacher
+    ? '<p class="lead">部員一人ひとりの' + G.year + '年の目標です。名前を押すと、理想の姿から月ごとの行動までのつながりが見られます。気になったところを押すとコメントでき、本人にメールで届きます。</p>'
+    : '<p class="lead">みんなの' + G.year + '年の目標です。名前を押すと中身が見られます（書き換えられるのは自分の分だけ）。</p>';
+  const meetBtn = '<p><button type="button" class="btn primary" data-gwho="' + G_MEET + '">振り返り会を開く（グループ・月ごとに並べて見る）</button></p>';
+  return lead + meetBtn + kis.map((k) => '<h3 class="gkih">' + esc(k) + '</h3><div class="gppl">' + byKi[k].map((p) => {
+    const gs = G.goals.filter((g) => g.owner === p.name);
+    const n = (lv) => gs.filter((g) => g.level === lv).length;
+    const late = gs.filter(gReviewLate).length;
+    const cm = G.comments.filter((c) => c.owner === p.name).length;
+    const last = gs.reduce((a, g) => Math.max(a, g.updated || 0), 0);
+    return '<button type="button" class="gp' + (p.name === G.me.name ? ' me' : '') + '" data-gwho="' + esc(p.name) + '"><b>' + esc(p.name) + '</b>' +
+      '<span class="gps">' + (gs.length ? '<span>目的 ' + n('目的') + '・年間 ' + n('年間') + '・時期 ' + n('時期') + '・月 ' + n('月') + '</span>' : '<span>まだ書いていません</span>') +
+      (late ? '<span class="late">振り返りまだ ' + late + '</span>' : '') + (cm ? '<span class="cm">💬 ' + cm + '</span>' : '') +
+      (last ? '<span>更新 ' + esc(gAt(last).split(' ')[0]) + '</span>' : '') + '</span></button>';
+  }).join('') + '</div>').join('');
+}
+
+// 1つの目標（カード）。押すと見る・コメントの窓。右の💬は件数
+function gCardHtml(g) {
+  const cs = gComs(g.id).length;
+  const rev = g.level === '月' ? (String(g.review || '').trim() ? '<span class="grv">振り返り：' + esc(g.review) + '</span>' : gReviewLate(g) ? '<span class="grv miss">振り返りまだ</span>' : '') : '';
+  return '<div class="gc" data-gnode="' + esc(g.id) + '"><button type="button" class="gmain" data-gview="' + esc(g.id) + '">' +
+    '<span class="gl l' + esc(g.level) + '">' + esc(g.level === '月' ? g.title : gLabel(g.level)) + '</span>' + (g.level === '時期' ? '<b class="gt">' + esc(g.title) + '</b>' : '') +
+    '<span class="gb">' + esc(g.body) + '</span>' + rev + '</button>' +
+    '<button type="button" class="gcm' + (cs ? ' has' : '') + '" data-gview="' + esc(g.id) + '" aria-label="コメント ' + cs + '件">💬' + (cs ? ' ' + cs : '') + '</button></div>';
+}
+const gAddBtn = (label, spec) => '<button type="button" class="gadd" data-gadd="' + esc(JSON.stringify(spec)) + '">＋ ' + esc(label) + '</button>';
+// 下の段を入れ子で出す（年間の下は、時期と、時期を飛ばした月）
+function gNodeHtml(g, mine) {
+  const ks = gKids(g.id);
+  let adds = '';
+  if (mine && g.level === '目的') adds = gAddBtn('年間の目標', { level: '年間', parent: g.id });
+  if (mine && g.level === '年間') adds = gAddBtn('時期・大会の目標', { level: '時期', parent: g.id }) + gAddBtn('月の行動', { level: '月', parent: g.id });
+  if (mine && g.level === '時期') adds = gAddBtn('月の行動', { level: '月', parent: g.id });
+  const inner = ks.map((k) => gNodeHtml(k, mine)).join('') + (adds ? '<div class="gadds">' + adds + '</div>' : '');
+  return '<div class="gn lv-' + esc(g.level) + '">' + gCardHtml(g) + (inner ? '<div class="gk">' + inner + '</div>' : '') + '</div>';
+}
+function gTreeHtml(name) {
+  const p = gPerson(name) || { name };
+  const mine = !G.me.teacher && name === G.me.name;
+  const gs = G.goals.filter((g) => g.owner === name);
+  const ideal = gs.find((g) => g.level === '理想');
+  const head = '<h2 class="gwhoh">' + esc(name) + (mine ? '（自分）' : '') + '<small>' + esc([p.ki ? p.ki.replace(/期$/, '') + '期' : '', gGradeName(p), G.year + '年'].filter(Boolean).join('・')) + '</small></h2>';
+  const late = gs.filter(gReviewLate).length;
+  const note = mine ? '<p class="lead">' + (gs.length ? '押すと直せます。' : 'まずは上の「理想の姿」から書いてみましょう。') + '目的 → 年間目標 → 時期・大会 → 月の行動 と、下へ足していくと、行動が理想までつながります。' +
+    (late ? '<b style="color:var(--late)">終わった月の振り返りが ' + late + '件まだです（「月ごと」から書けます）。</b>' : '') + '</p>' : '';
+  const idealHtml = ideal
+    ? '<div class="gideal" data-gnode="' + esc(ideal.id) + '"><button type="button" class="gmain" data-gview="' + esc(ideal.id) + '"><span class="gl">理想の姿</span><span class="gb">' + esc(ideal.body) + '</span></button>' +
+      '<button type="button" class="gcm' + (gComs(ideal.id).length ? ' has' : '') + '" data-gview="' + esc(ideal.id) + '">💬' + (gComs(ideal.id).length ? ' ' + gComs(ideal.id).length : '') + '</button></div>'
+    : '<div class="gideal"><div class="gmain"><span class="gl">理想の姿</span><span class="gb" style="color:var(--muted);font-weight:500">' + (mine ? gAddBtn('理想の姿を書く', { level: '理想' }) : 'まだ書いていません') + '</span></div></div>';
+  const cols = G_FIELDS.map((f, i) => {
+    const ps = gs.filter((g) => g.level === '目的' && g.field === f).sort(gSort);
+    return '<div class="gcol f' + i + '"><h3>' + esc(f) + '</h3>' + (ps.length ? ps.map((g) => gNodeHtml(g, mine)).join('') : '<p class="gempty">まだありません</p>') +
+      (mine ? '<div class="gadds">' + gAddBtn('目的', { level: '目的', field: f }) + '</div>' : '') + '</div>';
+  }).join('');
+  return head + note + '<div class="gtree"><div class="garrow" aria-hidden="true"><span>行動から理想まで一本でつながる</span></div>' + idealHtml + '<div class="gcols">' + cols + '</div></div>';
+}
+
+// 月ごと：その月の行動と振り返りを並べる。自分の分はその場で振り返りを書ける
+function gMonthHtml(name) {
+  const mine = !G.me.teacher && name === G.me.name;
+  const ms = G.goals.filter((g) => g.owner === name && g.level === '月');
+  const btns = Array.from({ length: 13 }, (_, i) => i + 1).map((m) => {
+    const here = ms.filter((g) => gMonthNo(g) === m);
+    const late = here.some(gReviewLate);
+    return '<button type="button" data-gmon="' + m + '" aria-pressed="' + (m === gMonth) + '"' + (late ? ' aria-label="' + m + '月（振り返りまだ）"' : '') + '>' + gMonName(m) +
+      (here.length ? '<small> ' + here.length + '</small>' : '') + (late ? '<i class="dotm" aria-hidden="true"></i>' : '') + '</button>';
+  }).join('');
+  const list = ms.filter((g) => gMonthNo(g) === gMonth).sort(gSort);
+  const rows = list.length ? list.map((g) => {
+    const cs = gComs(g.id).length;
+    return '<div class="gmrow" data-gnode="' + esc(g.id) + '"><p class="gchain">' + esc(gChain(g)) + '</p><b class="gb">' + esc(g.body) + '</b>' +
+      (mine
+        ? '<label class="sr" for="gr-' + esc(g.id) + '">振り返り</label><textarea id="gr-' + esc(g.id) + '" rows="2" maxlength="400" placeholder="振り返り（できたこと・できなかったこと・来月に生かすこと）">' + esc(g.review || '') + '</textarea>' +
+          '<div class="gmact"><button type="button" class="btn primary" data-grev="' + esc(g.id) + '">振り返りを保存</button>' + (gReviewLate(g) ? '<span class="grv miss">振り返りまだ</span>' : '') +
+          '<span class="sp" style="flex:1"></span><button type="button" class="btn" data-gview="' + esc(g.id) + '">💬 ' + cs + '</button></div>'
+        : '<p class="grv' + (gReviewLate(g) ? ' miss' : '') + '">' + (String(g.review || '').trim() ? '振り返り：' + esc(g.review) : gReviewLate(g) ? '振り返りまだ' : '振り返りはまだ（月が終わってから）') + '</p>' +
+          '<div class="gmact"><button type="button" class="btn" data-gview="' + esc(g.id) + '">💬 コメント ' + cs + '</button></div>') + '</div>';
+  }).join('') : '<div class="empty">' + gMonName(gMonth) + 'の行動はまだありません。' + (mine ? '「つながり」で年間目標か時期の目標の下に「＋ 月の行動」で足せます。' : '') + '</div>';
+  return '<h2 class="gwhoh">' + esc(name) + (mine ? '（自分）' : '') + '<small>' + G.year + '年・月ごとの行動と振り返り</small></h2><div class="gmonths" role="group" aria-label="月">' + btns + '</div>' + rows;
+}
+
+/* 書く・直すの窓 */
+function gOpenEdit(g, spec) {
+  gEditing = g || null;
+  gNew = g ? null : spec;
+  gDelArm = false;
+  const lv = g ? g.level : spec.level;
+  const parent = g ? (g.parent ? gById(g.parent) : null) : spec.parent ? gById(spec.parent) : null;
+  const me = gPerson(G.me.name) || {};
+  $('#gTitle').textContent = gLabel(lv) + (g ? 'を直す' : 'を書く');
+  $('#gUp').textContent = parent ? 'つながる先：' + gChain({ parent: parent.id, field: parent.field }) + ' › ' + (parent.level === '時期' ? parent.title + '：' : '') + String(parent.body).slice(0, 40) : '';
+  $('#gFieldRow').hidden = !(lv === '目的' && !g);
+  if (lv === '目的' && !g) document.querySelector('input[name="gf"][value="' + (spec.field || G_FIELDS[0]) + '"]').checked = true;
+  $('#gEvRow').hidden = lv !== '時期';
+  $('#gEv').value = g && lv === '時期' ? g.title : '';
+  const used = G.goals.filter((x) => x.owner === G.me.name && x.level === '時期' && x.parent === (parent && parent.id)).map((x) => x.title);
+  $('#gEvChips').innerHTML = (G_EVENTS[me.grade] || G_EVENTS[0]).filter((x) => !used.includes(x) || (g && g.title === x))
+    .map((x) => '<button type="button" data-gev="' + esc(x) + '">' + esc(x) + '</button>').join('');
+  $('#gMoRow').hidden = lv !== '月';
+  const [ty, tm] = D.today.split('-').map(Number);
+  $('#gMo').innerHTML = Array.from({ length: 13 }, (_, i) => '<option value="' + gMonName(i + 1) + '">' + (i === 12 ? G_LAST + '（1年たったときの姿）' : gMonName(i + 1)) + '</option>').join('');
+  $('#gMo').value = g && lv === '月' ? g.title : gMonName(gMode === 'month' && gMonth ? gMonth : G.year === ty ? tm : 1);
+  $('#gTextLabel').textContent = { 理想: '理想の姿', 目的: '目的', 年間: '年間の目標', 時期: '目標', 月: 'やること（行動）' }[lv];
+  $('#gText').value = g ? g.body : '';
+  $('#gText').placeholder = { 理想: '例：自分の考えや想いを、自分の手で形にできる人', 目的: '例：操体を味方につけ、動功五戒を表現する', 年間: '例：変陰で優勝する', 時期: '例：下段海老を極める', 月: '例：毎稽古の空き時間に下段海老を10回' }[lv];
+  $('#gRevRow').hidden = lv !== '月' || !g;
+  $('#gRev').value = g ? g.review || '' : '';
+  gAskUpdate(lv);
+  $('#gDel').hidden = !g;
+  $('#gDel').textContent = '削除';
+  $('#gMsg').textContent = '';
+  openDlg($('#gDlg'));
+}
+function gAskUpdate(lv) {
+  lv = lv || (gEditing ? gEditing.level : gNew.level);
+  const me = gPerson(G.me.name) || {};
+  let ask = G_HINT[lv] || '';
+  if (lv === '時期') {
+    const ev = $('#gEv').value.trim();
+    const a = ev === '代替わりまで' ? G_ASK_LAST[me.grade] || G_ASK_LAST[2] : G_ASK[ev];
+    if (a) ask = '【' + ev + 'で考えること】' + a.split('／').join('\n・').replace(/^/, '・');
+  }
+  $('#gAsk').textContent = ask;
+  $('#gAsk').style.whiteSpace = 'pre-line';
+}
+async function gSubmit(e) {
+  e.preventDefault();
+  const lv = gEditing ? gEditing.level : gNew.level;
+  const body = $('#gText').value.trim();
+  if (!body) { $('#gMsg').textContent = '中身を入れてください'; $('#gText').focus(); return; }
+  const item = { body };
+  if (lv === '時期') { item.title = $('#gEv').value.trim(); if (!item.title) { $('#gMsg').textContent = '時期・大会の名前を入れるか、下から選んでください'; $('#gEv').focus(); return; } }
+  if (lv === '月') item.title = $('#gMo').value;
+  if (lv === '月' && gEditing) item.review = $('#gRev').value.trim();
+  if (!gEditing) Object.assign(item, { level: lv, parent: gNew.parent || '', field: lv === '目的' ? document.querySelector('input[name="gf"]:checked').value : '' });
+  else item.id = gEditing.id;
+  $('#gSave').disabled = true;
+  try {
+    const r = await api('saveGoal', item, gEditing ? gEditing.updated : 0);
+    if (r.conflict) { gPut(r.goal); gOpenEdit(r.goal); $('#gMsg').textContent = 'ほかの端末で先に直されていました。今の内容にしたので、もう一度直して保存してください。'; return; }
+    gPut(r.goal);
+    $('#gDlg').close();
+    if (lv === '月' && !gEditing) gMonth = gMonthNo(r.goal);
+    renderGoal();
+    toast(gEditing ? '保存しました' : '足しました');
+  } catch (err) {
+    $('#gMsg').textContent = '保存できませんでした：' + errMsg(err);
+  } finally {
+    $('#gSave').disabled = false;
+  }
+}
+function gPut(g) {
+  const i = G.goals.findIndex((x) => x.id === g.id);
+  if (i >= 0) G.goals[i] = g; else G.goals.push(g);
+}
+// 削除：1回目で「本当に？」に変わり、2回目で消す（下の段もいっしょ）
+async function gDelete() {
+  const g = gEditing;
+  if (!g) return;
+  const n = (function count(id) { return gKids(id).reduce((a, k) => a + 1 + count(k.id), 0); })(g.id);
+  if (!gDelArm) { gDelArm = true; $('#gDel').textContent = n ? '本当に削除（下の ' + n + '件も）' : '本当に削除'; return; }
+  $('#gDel').disabled = true;
+  try {
+    const r = await api('deleteGoal', g.id);
+    G.goals = G.goals.filter((x) => !r.deleted.includes(x.id));
+    $('#gDlg').close();
+    renderGoal();
+    toast('削除しました' + (r.deleted.length > 1 ? '（下の段 ' + (r.deleted.length - 1) + '件も）' : ''));
+  } catch (err) {
+    $('#gMsg').textContent = '削除できませんでした：' + errMsg(err);
+  } finally {
+    $('#gDel').disabled = false;
+  }
+}
+
+/* 振り返り会：月1の対面や小グループで、1人1枚のカードを並べて見る（「1人ずつ」で画面に映す） */
+const G_MEET = '__meet';
+let gGroup = store.get('gGroup', null);
+let gOne = store.get('gOne', false) === true;
+let gIdx = 0;
+let gMeetMonthSet = false;
+function gGroups() {
+  const out = [['all', '全員']];
+  [...new Set(G.people.map((p) => p.group).filter(Boolean))].sort().forEach((g) => out.push(['g:' + g, g]));
+  [...new Set(G.people.map((p) => p.ki).filter(Boolean))].sort().forEach((k) => { const p = G.people.find((x) => x.ki === k); out.push(['k:' + k, k.replace(/期$/, '') + '期' + (p && p.grade ? '（' + gGradeName(p) + '）' : '')]); });
+  return out;
+}
+function gGroupNow() {
+  const gs = gGroups();
+  if (gs.some((g) => g[0] === gGroup)) return gGroup;
+  const me = gPerson(G.me.name);
+  const def = me && me.group ? 'g:' + me.group : me && me.ki ? 'k:' + me.ki : 'all';
+  return gs.some((g) => g[0] === def) ? def : 'all';
+}
+function gMeetPeople() {
+  const g = gGroupNow();
+  if (g === 'all') return G.people;
+  if (g.startsWith('g:')) return G.people.filter((p) => p.group === g.slice(2));
+  return G.people.filter((p) => p.ki === g.slice(2));
+}
+function gMeetCard(p) {
+  const gs = G.goals.filter((g) => g.owner === p.name);
+  const ideal = gs.find((g) => g.level === '理想');
+  const fi = (g) => ' class="f' + G_FIELDS.indexOf(g.field) + '"';
+  const li = (g, rev) => {
+    const cs = gComs(g.id).length;
+    return '<li' + fi(g) + '><button type="button" data-gview="' + esc(g.id) + '">' + (g.level === '時期' ? '<b>' + esc(g.title) + '：</b>' : '') + esc(g.body) +
+      (cs ? '<span class="gcmn">💬' + cs + '</span>' : '') +
+      (rev ? (String(g.review || '').trim() ? '<span class="grv">振り返り：' + esc(g.review) + '</span>' : '<span class="grv' + (gReviewLate(g) ? ' miss' : '') + '">' + (gReviewLate(g) ? '振り返りまだ' : '振り返りはまだ') + '</span>') : '') + '</button></li>';
+  };
+  const list = (arr, rev) => (arr.length ? '<ul>' + arr.map((g) => li(g, rev)).join('') + '</ul>' : '<p class="gnone">まだありません</p>');
+  const yearG = gs.filter((g) => g.level === '年間').sort((a, b) => G_FIELDS.indexOf(a.field) - G_FIELDS.indexOf(b.field) || gSort(a, b));
+  const now = gs.filter((g) => g.level === '月' && gMonthNo(g) === gMonth).sort(gSort);
+  const next = gs.filter((g) => g.level === '月' && gMonthNo(g) === gMonth + 1).sort(gSort);
+  return '<article class="gpc"><h3>' + esc(p.name) + '<small>' + esc([p.ki ? p.ki.replace(/期$/, '') + '期' : '', gGradeName(p), p.group].filter(Boolean).join('・')) + '</small>' +
+    '<button type="button" class="gopen" data-gwho="' + esc(p.name) + '">木を見る</button></h3>' +
+    (ideal ? '<p class="gideal1">理想：' + esc(ideal.body) + '</p>' : '') +
+    '<h4>' + G.year + '年の目標</h4>' + list(yearG, false) +
+    '<h4>' + gMonth + '月の行動と振り返り</h4>' + list(now, true) +
+    (gMonth < 12 ? '<h4>' + (gMonth + 1) + '月にやること</h4>' + list(next, false) : '') + '</article>';
+}
+function gMeetHtml() {
+  if (!gMeetMonthSet) {  // 振り返り会は月末にやるので、最初は今月を出す
+    const [y, m] = D.today.split('-').map(Number);
+    gMonth = G.year === y ? m : G.year < y ? 12 : 1;
+    gMeetMonthSet = true;
+  }
+  const ppl = gMeetPeople();
+  if (gIdx >= ppl.length) gIdx = 0;
+  const gsel = '<label class="chk">見る人 <select data-ggrp aria-label="振り返り会で見る人">' + gGroups().map((g) => '<option value="' + esc(g[0]) + '"' + (g[0] === gGroupNow() ? ' selected' : '') + '>' + esc(g[1]) + '</option>').join('') + '</select></label>';
+  const months = '<div class="gmonths" role="group" aria-label="振り返る月">' + Array.from({ length: 12 }, (_, i) => i + 1).map((m) => '<button type="button" data-gmon="' + m + '" aria-pressed="' + (m === gMonth) + '">' + m + '月</button>').join('') + '</div>';
+  const seg = '<div class="seg2" role="group" aria-label="並べ方"><button type="button" data-gone="0" aria-pressed="' + !gOne + '">みんな並べる</button><button type="button" data-gone="1" aria-pressed="' + gOne + '">1人ずつ</button></div>';
+  const big = '<label class="chk"><input type="checkbox" data-gbig' + (document.body.classList.contains('big') ? ' checked' : '') + '> 文字を大きく</label>';
+  const late = ppl.reduce((a, p) => a + G.goals.filter((g) => g.owner === p.name && g.level === '月' && gMonthNo(g) === gMonth && gReviewLate(g)).length, 0);
+  const lead = '<p class="lead">月末の振り返り会用（各自のスマホで見る・1人5分ほど）。振り返りは会の前日までに書いておきます。' + gMonth + '月の行動と振り返り、次の月にやることを1人1枚で並べます。行動を押すとコメントできます（本人にメールで届きます）。' +
+    (late ? '<b style="color:var(--late)">' + gMonth + '月の振り返りがまだのものが ' + late + '件あります。</b>' : '') + '</p>';
+  if (!ppl.length) return '<div class="gmeetbar">' + gsel + '</div>' + months + '<div class="empty">この組み合わせの人はいません</div>';
+  const body = gOne
+    ? '<div class="gsolo"><button type="button" class="btn" data-gstep="-1"' + (gIdx === 0 ? ' disabled' : '') + '>‹ 前の人</button><span class="num">' + (gIdx + 1) + ' / ' + ppl.length + '</span><button type="button" class="btn" data-gstep="1"' + (gIdx === ppl.length - 1 ? ' disabled' : '') + '>次の人 ›</button></div><div class="gmeet one">' + gMeetCard(ppl[gIdx]) + '</div>'
+    : '<div class="gmeet">' + ppl.map(gMeetCard).join('') + '</div>';
+  return '<div class="gmeetbar">' + gsel + seg + big + '</div>' + months + lead + body;
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#v-goal')) return;
+  const o = e.target.closest('[data-gone]');
+  if (o) { gOne = o.dataset.gone === '1'; store.set('gOne', gOne); renderGoal(); return; }
+  const st = e.target.closest('[data-gstep]');
+  if (st) { gIdx += Number(st.dataset.gstep); renderGoal(); window.scrollTo(0, 0); }
+});
+document.addEventListener('change', (e) => {
+  if (e.target.matches('[data-ggrp]')) { gGroup = e.target.value; store.set('gGroup', gGroup); gIdx = 0; renderGoal(); }
+  if (e.target.matches('[data-gbig]')) { document.body.classList.toggle('big', e.target.checked); store.set('big', e.target.checked); const fb = $('#fBig'); if (fb) fb.checked = e.target.checked; }
+});
+
+/* 見る・コメントの窓 */
+function gOpenView(id) {
+  const g = gById(id);
+  if (!g) return;
+  gViewing = g;
+  const mine = gIsMine(g);
+  $('#gvTitle').textContent = (g.owner === G.me.name ? '' : g.owner + 'さんの') + (g.level === '月' ? g.title + 'の行動' : g.level === '時期' ? g.title + 'の目標' : gLabel(g.level));
+  $('#gvUp').textContent = gChain(g);
+  $('#gvText').textContent = g.body;
+  $('#gvRev').textContent = g.level === '月' ? (String(g.review || '').trim() ? '振り返り：' + g.review : gReviewLate(g) ? '振り返りまだ' : '') : '';
+  $('#gvRev').className = 'grv' + (gReviewLate(g) ? ' miss' : '');
+  gComsRender();
+  $('#gvNew').value = '';
+  $('#gvMsg').textContent = '';
+  $('#gvEdit').hidden = !mine;
+  openDlg($('#gvDlg'));
+}
+function gComsRender() {
+  const g = gViewing;
+  const cs = gComs(g.id);
+  const students = new Set(G.people.map((p) => p.name));
+  $('#gvComs').innerHTML = cs.map((c) => '<div class="gcom' + (c.by === g.owner ? ' own' : '') + '"><div class="gch"><b>' + esc(c.by) + '</b>' +
+    (!students.has(c.by) ? '<span class="gtch">指導者</span>' : '') + '<span>' + esc(gAt(c.at)) + '</span></div><p>' + esc(c.text) + '</p></div>').join('');
+  const others = [...new Set(cs.map((c) => c.by))].filter((n) => n !== G.me.name);
+  $('#gvTo').textContent = g.owner === G.me.name
+    ? (others.length ? '送ると、' + others.join('・') + ' さんにメールで届きます' : 'まだコメントはありません。自分のメモとして書くこともできます')
+    : '送ると、' + g.owner + ' さんにメールで届きます';
+}
+async function gSend() {
+  const text = $('#gvNew').value.trim();
+  if (!text) { $('#gvMsg').textContent = 'コメントを入れてください'; $('#gvNew').focus(); return; }
+  $('#gvSend').disabled = true;
+  try {
+    const r = await api('addGoalComment', gViewing.id, text);
+    G.comments.push(r.comment);
+    $('#gvNew').value = '';
+    $('#gvMsg').textContent = '';
+    gComsRender();
+    renderGoal();
+    toast('コメントを送りました' + (r.sent && r.sent.length ? '（' + r.sent.join('・') + ' さんにメール）' : ''));
+  } catch (err) {
+    $('#gvMsg').textContent = '送れませんでした：' + errMsg(err);
+  } finally {
+    $('#gvSend').disabled = false;
+  }
+}
+async function gSaveReview(id, btn) {
+  const g = gById(id);
+  const ta = document.getElementById('gr-' + id);
+  if (!g || !ta) return;
+  btn.disabled = true;
+  try {
+    const r = await api('saveGoal', { id, review: ta.value.trim() }, g.updated);
+    if (r.conflict) { gPut(r.goal); renderGoal(); toast('ほかの端末で先に直されていました。今の内容にしたので、もう一度書いてください'); return; }
+    gPut(r.goal);
+    renderGoal();
+    toast('振り返りを保存しました');
+  } catch (err) {
+    toast('保存できませんでした：' + errMsg(err));
+    btn.disabled = false;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#v-goal')) return;
+  const w = e.target.closest('[data-gwho]');
+  if (w) { gWho = w.dataset.gwho; gFocus = ''; renderGoal(); window.scrollTo(0, 0); return; }
+  const md2 = e.target.closest('[data-gmode]');
+  if (md2) { gMode = md2.dataset.gmode; store.set('gMode', gMode); gFocus = ''; renderGoal(); return; }
+  const mo = e.target.closest('[data-gmon]');
+  if (mo) { gMonth = Number(mo.dataset.gmon); renderGoal(); return; }
+  const ad = e.target.closest('[data-gadd]');
+  if (ad) { gOpenEdit(null, JSON.parse(ad.dataset.gadd)); return; }
+  const rv = e.target.closest('[data-grev]');
+  if (rv) { gSaveReview(rv.dataset.grev, rv); return; }
+  const v = e.target.closest('[data-gview]');
+  if (v) { gOpenView(v.dataset.gview); }
+});
+$('#gWho').onchange = (e) => { gWho = e.target.value || null; gFocus = ''; renderGoal(); };
+$('#gYear').onchange = (e) => { gFocus = ''; loadGoals(Number(e.target.value)); };
+$('#gForm').onsubmit = gSubmit;
+$('#gClose').onclick = $('#gCancel').onclick = () => $('#gDlg').close();
+$('#gDel').onclick = gDelete;
+$('#gEv').oninput = () => gAskUpdate('時期');
+$('#gEvChips').onclick = (e) => { const b = e.target.closest('[data-gev]'); if (b) { $('#gEv').value = b.dataset.gev; gAskUpdate('時期'); $('#gText').focus(); } };
+$('#gvClose').onclick = $('#gvCancel').onclick = () => $('#gvDlg').close();
+$('#gvSend').onclick = gSend;
+$('#gvEdit').onclick = () => { const g = gViewing; $('#gvDlg').close(); gOpenEdit(g); };
 
 /* ---------- 見本のデータ（google.script.run がないときだけ） ---------- */
 const demo = (() => {
@@ -1879,10 +2508,48 @@ const demo = (() => {
     { name: '二段審査', kind: '審査', start: dd(37), end: dd(37), next: false },
     { name: '春合宿', kind: '合宿', start: dd(106), end: dd(109), next: true },
   ];
-  const me = { name: '石田', dept: '主将局', core: true, boss: false, teams: ['新歓首脳'], units: ['新歓代表', 'SNS'] };
+  // ?as=teacher で指導者として見る（目標のタブだけ）
+  const asTeacher = new URLSearchParams(location.search).get('as') === 'teacher';
+  const me = asTeacher ? { name: '森先生', dept: '', core: false, boss: false, teams: [], units: [], teacher: true }
+    : { name: '石田', dept: '主将局', core: true, boss: false, teams: ['新歓首脳'], units: ['新歓代表', 'SNS'] };
+  // 個人年間目標の見本（来年分。名前・中身は架空）
+  const GY = T.getMonth() >= 10 ? T.getFullYear() + 1 : T.getFullYear();
+  let gn = 1;
+  const goals = [];
+  const gAddD = (owner, level, parent, field, title, body, review) => {
+    const g = { id: 'G' + String(gn++).padStart(4, '0'), year: GY, owner, level, parent: parent ? parent.id : '', field: parent ? parent.field : field || '', title: title || '', body, review: review || '', order: gn, updated: Date.now() - gn * 36e5, by: owner };
+    goals.push(g);
+    return g;
+  };
+  {
+    const o = '石田';
+    gAddD(o, '理想', null, '', '', '自分の考えや想いを、自分の手で形にできる人');
+    const a = gAddD(o, '目的', null, '躰道の追究', '', '操体を味方につけ、動功五戒を表現する');
+    const a1 = gAddD(o, '年間', a, '', '', '変陰で優勝する');
+    const e1 = gAddD(o, '時期', a1, '', '銀杏杯', '下段海老を極め、ハンスプを跳ぶ');
+    gAddD(o, '月', e1, '', '3月', 'ハンスプをエバーマットで自立', 'エバーでは3回に1回立てた。床はまだこわい');
+    gAddD(o, '月', e1, '', '4月', 'ハンスプを床で自立');
+    gAddD(o, '月', e1, '', '5月', '毎稽古の空き時間に下段海老を10回');
+    const e2 = gAddD(o, '時期', a1, '', '新歓期間', '新入生があこがれる実技を見せる');
+    gAddD(o, '月', e2, '', '4月', '演武の展開を2週間で通せるようにする');
+    const b = gAddD(o, '目的', null, '人間的成長', '', '目標を達成するまで努力し続けた自信を得る');
+    const b1 = gAddD(o, '年間', b, '', '', '苦手から目を逸らさず、毎月ふり返りを続ける');
+    gAddD(o, '月', b1, '', '1月', '練習ノートを毎回1行でも書く', '');
+    gAddD(o, '月', b1, '', '2月', '後輩に1日1回声をかける');
+  }
+  {
+    const o = '青山';
+    gAddD(o, '理想', null, '', '', 'まわりの人の力を引き出せる人');
+    const a = gAddD(o, '目的', null, '人間的成長', '', '部員全員が自分なりの目的を持てるように働きかける');
+    gAddD(o, '年間', a, '', '', '全員と月1回は1対1で話す');
+  }
+  const gComments = [{ at: Date.now() - 864e5, goal: 'G0004', owner: '石田', by: '森先生', text: '海老は腰の高さを意識すると安定します。動画を撮って見比べてみましょう。' },
+    { at: Date.now() - 5e7, goal: 'G0004', owner: '石田', by: '石田', text: 'ありがとうございます！次の稽古で撮ってみます。' }];
+  const gPeople = [['青山', '24'], ['石田', '24'], ['上野', '25'], ['北村', '25'], ['坂井', '26'], ['小野', '26']]
+    .map(([name, ki], i) => ({ name, ki, grade: GY - 1999 - Number(ki), dept: '', group: i % 2 ? 'B班' : 'A班' }));
   const teamUnits = { 新歓首脳: ['新歓首脳', '新歓代表', 'SNS', 'パンフ', 'PV', 'パワポ', '看板デザイン', 'ビラ', '企画・看板組み立て', '新入生係', 'ご飯・会計', '演武', 'デジタル'] };
   return {
-    appData() { return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務', '個人', '新歓首脳'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48), teamUnits }; },
+    appData() { if (me.teacher) return { me, today: ks(T), depts: [], statuses: [], members: [], tasks: [], draft: [], events: [], switchDate: '', teamUnits: {} }; return { me, today: ks(T), depts: ['主将局', '内務', '経理', '企画', '外務', '医務', 'OBOG', '広報', '合宿', '常務', '個人', '新歓首脳'], statuses: ['要確認', '未着手', '進行中', '済', '不要'], members, tasks, draft, events, switchDate: dd(48), teamUnits }; },
     saveTask(id, change) {
       const t = tasks.concat(draft).find((x) => x.id === id);
       let note = '';
@@ -1897,6 +2564,32 @@ const demo = (() => {
       // 親の場所を変えたら子も
       if ('cat' in change || 'unit' in change) tasks.concat(draft).filter((x) => x.parent === id).forEach((x) => { x.cat = t.cat || ''; x.unit = t.unit || ''; });
       return { task: t, note };
+    },
+    goalData() { return { me: { name: me.name, teacher: !!me.teacher }, year: GY, nowYear: GY, years: [GY], people: gPeople, goals, comments: gComments }; },
+    saveGoal(item) {
+      if (me.teacher) throw new Error('目標を書けるのは部員だけです（指導者はコメントで）');
+      if (item.id) {
+        const g = goals.find((x) => x.id === item.id);
+        ['title', 'body', 'review'].forEach((k) => { if (item[k] != null) g[k] = item[k]; });
+        g.updated = Date.now();
+        return { goal: g };
+      }
+      if (item.level === '理想') { const had = goals.find((x) => x.owner === me.name && x.level === '理想'); if (had) { had.body = item.body; return { goal: had }; } }
+      const par = goals.find((x) => x.id === item.parent);
+      return { goal: gAddD(me.name, item.level, par, item.field, item.title, item.body, item.review) };
+    },
+    deleteGoal(id) {
+      const gone = [id];
+      for (let i = 0; i < gone.length; i++) goals.forEach((x) => { if (x.parent === gone[i]) gone.push(x.id); });
+      for (let i = goals.length - 1; i >= 0; i--) if (gone.includes(goals[i].id)) goals.splice(i, 1);
+      return { deleted: gone };
+    },
+    addGoalComment(id, text) {
+      const g = goals.find((x) => x.id === id);
+      const c = { at: Date.now(), goal: id, owner: g.owner, by: me.name, text };
+      const before = gComments.filter((x) => x.goal === id).map((x) => x.by);
+      gComments.push(c);
+      return { comment: c, sent: me.name === g.owner ? [...new Set(before)].filter((n) => n !== me.name) : [g.owner] };
     },
     deleteTask(id) {
       const all = tasks.concat(draft);
@@ -1918,6 +2611,22 @@ const demo = (() => {
 })();
 
 /* ---------- はじめ ---------- */
+// コメントのメールから来たとき（?goal=G0001）：目標のタブで、その人の木を開いてコメントの窓を出す
+function openGoalLink(id) {
+  if (!id) return;
+  view = 'goal';
+  gFocus = id;
+  const wait = setInterval(() => {
+    if (!D) return;
+    if (!G) { if (!gLoading) loadGoals(); return; }
+    clearInterval(wait);
+    const g = gById(id);
+    if (!g) { toast('その目標は見つかりませんでした（消されたかもしれません）'); return; }
+    gWho = g.owner; gWhoSet = true; gMode = 'tree';
+    renderGoal();
+    gOpenView(id);
+  }, 200);
+}
 // メールのボタン（✅済・📅延期・🙋手伝って）から来たとき
 function mailButton(q) {
   $('#fab').hidden = true;
@@ -1941,13 +2650,14 @@ function mailButton(q) {
 }
 
 if (GAS) {
-  google.script.url.getLocation((loc) => { auth = { u: loc.parameter.u, k: loc.parameter.k }; load(); });
+  google.script.url.getLocation((loc) => { auth = { u: loc.parameter.u, k: loc.parameter.k }; openGoalLink(loc.parameter.goal); load(); });
 } else if (REMOTE) {
   const q = new URLSearchParams(location.search);
   if (q.get('a') && q.get('id')) mailButton(q);
-  else { auth = { u: q.get('u') || '', k: q.get('k') || '' }; load(); }
+  else { auth = { u: q.get('u') || '', k: q.get('k') || '' }; openGoalLink(q.get('goal')); load(); }
 } else {
   $('#demo').hidden = false;
+  openGoalLink(new URLSearchParams(location.search).get('goal'));
   load();
 }
 })();
